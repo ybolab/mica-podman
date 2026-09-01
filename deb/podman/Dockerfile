@@ -1,0 +1,178 @@
+# syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
+# check=skip=InvalidDefaultArgInFrom
+# The podman producer: the `mos-podman` package.
+#
+#   make os-deb-podman  ->  build-env/deb/build.sh --producer podman --arch <amd64|arm64>
+#
+# This file only STAGES, ASSERTS and PACKS. The seven binaries were compiled by
+# this producer's PREPARE hook -- pkgs/podman/build.sh, six pinned upstreams
+# across four toolchains -- and arrive through the `bin` context; the container
+# configuration arrives through `overlay`, which is rootfs/overlay and the
+# tree that owns those files today.
+#
+# This stage runs at the TARGET architecture because dpkg-shlibdeps resolves an
+# ELF's dependencies against the libraries of the container it runs in, and
+# build-env/deb/pack.sh refuses the mismatch by name. There are seven ELF
+# payloads here, so that is the whole reason this producer is not
+# Architecture: all.
+#
+# No default for the base, for the reason build-env/deb/Dockerfile gives: a
+# driver that failed to pass the argument would otherwise build from a floating
+# tag.
+ARG MOS_BUILD_DEB
+
+FROM ${MOS_BUILD_DEB} AS pack
+
+# THE RUNTIME LIBRARIES THE PAYLOAD LINKS AGAINST, present so dpkg-shlibdeps can
+# resolve them. This is not the package's dependency list being written down: it
+# is the opposite. dpkg-shlibdeps answers "what does this ELF need" by looking at
+# the libraries INSTALLED NEXT TO IT, in this container -- build-env/deb/README.md
+# says so and it is why pack.sh refuses an architecture mismatch -- and
+# mos-build-deb carries dpkg-dev and no runtime. Without these, packing dies with
+# `cannot find library libjson-c.so.5 needed by .../usr/bin/crun` and the package
+# is never produced. The mosd producers never meet this because their Rust
+# binaries need only libc, which every base carries.
+#
+# THE LIST IS rootfs/stages/31-feature-containers.Dockerfile'S, read from there
+# rather than re-derived, and each entry's reasoning lives there: libjson-c5
+# (crun 1.29.1 requires json-c, not yajl), libsubid5 and libseccomp2 (podman),
+# libcap2 (crun), libglib2.0-0t64 (conmon). What follows from installing them is
+# that shlibdeps EMITS them into Depends itself, with the version floors it
+# derives from each library's symbols file -- floors no hand-written list could
+# state and keep current. None of them is written into the control template.
+#
+# It runs at the TARGET architecture, like everything else in this stage, so the
+# arm64 pack resolves arm64 sonames against arm64 libraries. The apt lists are a
+# cache mount and `apt-get update` runs inside it every time, so the architecture
+# of the lists is always this container's.
+RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-deb-podman,sharing=locked \
+    --mount=type=cache,target=/var/lib/apt/lists,id=apt-lists-deb-podman,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean && \
+    apt-get update && apt-get install -y --no-install-recommends \
+        libjson-c5 libsubid5 libseccomp2 libcap2 libglib2.0-0t64
+
+# pack.sh comes over as a named context rather than out of the image. It is the
+# packaging CONTRACT, shared by every producer, and build-env/deb/README.md
+# requires this shape: an edit to the packer then takes effect without
+# rebuilding the whole builder family.
+COPY --from=packer pack.sh /usr/local/bin/pack.sh
+
+COPY control/ /in/control/
+COPY copyright payload.manifest /in/
+
+# The four configuration files podman actually reads, and the Quadlet mount
+# unit, at the paths rootfs/scripts/overlay-install.sh installs them to.
+# PLAN-036 section 3: "Podman's configuration and Quadlet mount belong to
+# mos-podman, not to the common system overlay."
+COPY --from=overlay etc/containers/containers.conf \
+                    etc/containers/policy.json \
+                    etc/containers/registries.conf \
+                    etc/containers/storage.conf /in/etc/containers/
+COPY --from=overlay etc/systemd/system/etc-containers-systemd.mount /in/etc/systemd/system/
+
+COPY --from=bin podman quadlet crun conmon netavark aardvark-dns catatonit /in/bin/
+
+ARG MOS_DEB_VERSION
+# The workspace version, for the one cross-boundary pin: this package's own
+# version is podman's (VERSION_FROM), while its Depends pins mos-system at the
+# version mos-system actually carries.
+ARG MOS_DEB_SYSTEM_VERSION
+ARG MOS_DEB_ARCH
+ARG SOURCE_DATE_EPOCH
+
+# THE PAYLOAD IS rootfs/scripts/podman-install.sh's RESULT, path for path and
+# mode for mode, plus the overlay's container configuration and the copyright.
+# Nothing about what the rootfs chain installs changes here: rootfs/ still
+# ships these files loose until a later workstream switches it, so this staging
+# is a second producer of one tree and the two have to agree.
+#
+# Every directory is created explicitly rather than left to `install -D`, so the
+# mode of each one is a decision in this file. /etc/containers and
+# /etc/containers/systemd are payload of this package outright -- PLAN-036 gives
+# it the subtree -- and the pool's ownership check does not flag directory
+# overlap, so an omitted directory here is caught by nothing but the assertion
+# below.
+#
+# THE GENERATOR IS A RELATIVE SYMLINK, and the target is the one
+# podman-install.sh writes: ../../../libexec/podman/quadlet, resolved from
+# /usr/lib/systemd/system-generators. An absolute link would name a path that is
+# correct on the device and wrong inside every tool that reads the payload
+# against a staging root.
+#
+# NO multi-user.target.wants LINK, and no maintainer script that enables
+# anything. See ENABLEMENT in producer.env for both halves of why.
+#
+# NOT a conffile, deliberately, and the same decision the mosd producers record:
+# six of these paths are under /etc, but this root filesystem is an immutable
+# dm-verity squashfs and nobody edits anything in it. A conffiles entry would
+# promise a three-way merge that cannot happen. Do not "fix" this into one.
+RUN set -eu; \
+    install -d -m 0755 /stage/etc /stage/etc/containers /stage/etc/containers/systemd \
+                       /stage/etc/systemd /stage/etc/systemd/system \
+                       /stage/usr /stage/usr/bin /stage/usr/lib /stage/usr/lib/systemd \
+                       /stage/usr/lib/systemd/system-generators \
+                       /stage/usr/libexec /stage/usr/libexec/podman \
+                       /stage/usr/share /stage/usr/share/doc /stage/usr/share/doc/mos-podman; \
+    install -m 0755 /in/bin/podman /stage/usr/bin/podman; \
+    install -m 0755 /in/bin/crun   /stage/usr/bin/crun; \
+    for b in quadlet conmon netavark aardvark-dns catatonit; do \
+        install -m 0755 "/in/bin/${b}" "/stage/usr/libexec/podman/${b}"; \
+    done; \
+    ln -s ../../../libexec/podman/quadlet \
+          /stage/usr/lib/systemd/system-generators/podman-system-generator; \
+    for f in containers.conf policy.json registries.conf storage.conf; do \
+        install -m 0644 "/in/etc/containers/${f}" "/stage/etc/containers/${f}"; \
+    done; \
+    install -m 0644 /in/etc/systemd/system/etc-containers-systemd.mount \
+                    /stage/etc/systemd/system/etc-containers-systemd.mount; \
+    install -m 0644 /in/copyright /stage/usr/share/doc/mos-podman/copyright
+
+# PRODUCER INDEPENDENCE, asserted rather than described, in the form that is
+# meaningful for a producer whose payload is a file set rather than a compile:
+# the staged tree is EXACTLY the declared set. The mosd producers assert the
+# same boundary by failing when a binary they do not own turns up in their
+# target directory; here the equivalent is a path -- of any kind, extra or
+# missing -- that payload.manifest does not name.
+#
+# Both directions matter and a one-directional check is the trap. "No path
+# outside the declaration" passes over an empty tree; "every declared path is
+# present" passes over a tree with a stray file in it. `diff` of two sorted
+# lists is both at once.
+#
+# The generated side reads MODE, TYPE and SYMLINK TARGET, not just the path,
+# because the three things most likely to go wrong quietly are a 0644 binary, a
+# regular file where the generator symlink should be, and a symlink whose target
+# is right on the device and wrong everywhere else.
+RUN set -eu; \
+    grep -v '^#' /in/payload.manifest | grep -v '^$' | LC_ALL=C sort > /tmp/declared; \
+    [ -s /tmp/declared ] || { echo "error: /in/payload.manifest declares no paths after comments are stripped. An 'is exactly' assertion over an empty declaration is one that reports green over any payload at all" >&2; exit 1; }; \
+    find /stage -mindepth 1 -printf '%#m %y /%P\t%l\n' \
+        | awk -F'\t' '{ if ($2 == "") print $1; else print $1 " -> " $2 }' \
+        | LC_ALL=C sort > /tmp/staged; \
+    if ! diff -u /tmp/declared /tmp/staged; then \
+        echo "error: the staged tree is not the payload pkgs/podman/deb/podman/payload.manifest declares. '-' is declared and not staged, '+' is staged and not declared; mos-podman owns exactly what that file lists" >&2; \
+        exit 1; \
+    fi; \
+    echo "podman-deb: the staged tree is exactly the $(wc -l < /tmp/declared) declared paths"
+
+RUN set -eu; \
+    pack.sh --root /stage --control /in/control/mos-podman.control \
+            --version "${MOS_DEB_VERSION}" --system-version "${MOS_DEB_SYSTEM_VERSION}" \
+            --arch "${MOS_DEB_ARCH}" --out /out
+
+# ONE ARCHIVE, AND IT IS mos-podman's. The other half of the independence claim:
+# PACKAGES declares one package, so a producer that emitted a second archive
+# would be one whose declaration and output had come apart -- and /out is what
+# `-o type=local` copies into the shared pool, where a stray archive would be
+# indexed by repo.sh as if some producer meant it.
+RUN set -eu; \
+    got="$(find /out -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')"; \
+    want="mos-podman_${MOS_DEB_VERSION}_${MOS_DEB_ARCH}.deb "; \
+    [ "${got}" = "${want}" ] || { echo "error: this producer emits mos-podman and nothing else, and /out holds '${got}' rather than '${want}'" >&2; exit 1; }; \
+    echo "podman-deb: /out holds ${want}and no other archive"
+
+# The export stage, the shape pkgs/mosd/deb/*/Dockerfile end in: `-o
+# type=local` writes this stage's filesystem into _out/debs/<arch>/pool/ and
+# nothing here installs into a root.
+FROM scratch AS out
+COPY --from=pack /out/ /
