@@ -61,7 +61,7 @@ Description: mos container engine
  mos-system is depended on at the EXACT POOL VERSION, and this entry CHANGED ITS
  MIND. The dependency itself has not moved: mos-system owns the mounts this
  package's configuration names -- storage.conf puts the container graphroot on
- /srv/containers/storage, which is the DATA partition mos-system's fstab mounts,
+ /mos/containers/storage, which is the MOS-owned namespace on DATA,
  and etc-containers-systemd.mount binds /mnt/state/quadlet, which needs
  mos-seed-state.service from the same package. That is why this package depends
  on it at all, and it is unchanged.
