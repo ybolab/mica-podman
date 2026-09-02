@@ -99,6 +99,27 @@ ARG SOURCE_DATE_EPOCH
 # correct on the device and wrong inside every tool that reads the payload
 # against a staging root.
 #
+# `docker` IS A SECOND NAME FOR podman AND NOTHING MORE, relative for the same
+# reason. podman reads argv[0] to NAME ITSELF and for nothing else -- its root
+# command's Use is the basename it was invoked as, so `docker --version` prints
+# `docker version 5.8.6` and the usage text says docker, while every verb, flag
+# and behaviour is podman's own. No mode is selected by the name.
+#
+# What the name does not bring is everything Docker keeps behind its socket:
+# there is no daemon, no /run/docker.sock and no REST API in this image, so a
+# client that dials the socket rather than exec'ing the binary is no better off
+# than before. `docker compose` fails the way `podman compose` does -- measured
+# against this archive: "Error: looking up compose provider failed", over seven
+# candidate paths, because podman shells out to a compose provider and neither
+# docker-compose nor podman-compose is payload here. Quadlet is this image's
+# composition mechanism.
+#
+# NOT the upstream podman-docker wrapper, which is a shell script that prints
+# "Emulate Docker CLI using podman" to stderr unless /etc/containers/nodocker
+# exists. That file is the operator's off switch for the message, and this root
+# is an immutable dm-verity squashfs: shipping the script would nail the notice
+# to every invocation with no way to silence it.
+#
 # NO multi-user.target.wants LINK, and no maintainer script that enables
 # anything. See ENABLEMENT in producer.env for both halves of why.
 #
@@ -120,6 +141,7 @@ RUN set -eu; \
     done; \
     ln -s ../../../libexec/podman/quadlet \
           /stage/usr/lib/systemd/system-generators/podman-system-generator; \
+    ln -s podman /stage/usr/bin/docker; \
     for f in containers.conf policy.json registries.conf storage.conf; do \
         install -m 0644 "/in/etc/containers/${f}" "/stage/etc/containers/${f}"; \
     done; \

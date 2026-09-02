@@ -12,6 +12,18 @@ Description: mos container engine
  system generator symlink, the /etc/containers configuration podman actually
  reads, and the Quadlet unit directory the operator writes into.
  .
+ /usr/bin/docker IS A SYMLINK TO podman AND IS THE WHOLE OF THE DOCKER
+ COMPATIBILITY THIS PACKAGE OFFERS. podman reads argv[0] to name itself and for
+ nothing else -- `docker --version` prints "docker version 5.8.6" and the usage
+ text says docker -- while every verb, flag and behaviour behind the name stays
+ podman's. Everything Docker keeps behind its socket is absent: there is no
+ daemon, no /run/docker.sock and no REST API in this image, so a client that
+ dials the socket instead of exec'ing the binary gains nothing, and
+ `docker compose` fails exactly as `podman compose` does -- "looking up compose
+ provider failed" -- because podman shells out to a compose provider and neither
+ docker-compose nor podman-compose is payload here. Quadlet is this image's
+ composition mechanism.
+ .
  The versions are this repository's decision and not the distribution's: trixie
  ships podman 5.4.2, crun 1.21 and netavark 1.14, and pkgs/podman/versions.env
  is the upgrade interface for all six.

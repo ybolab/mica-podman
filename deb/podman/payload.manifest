@@ -43,4 +43,5 @@
 0755 f /usr/libexec/podman/conmon
 0755 f /usr/libexec/podman/netavark
 0755 f /usr/libexec/podman/quadlet
+0777 l /usr/bin/docker -> podman
 0777 l /usr/lib/systemd/system-generators/podman-system-generator -> ../../../libexec/podman/quadlet
