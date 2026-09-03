@@ -53,6 +53,13 @@ Description: mos container engine
  it the first `podman run` fails with "netavark: nftables error: unable to
  execute nft", and no NEEDED-soname check can predict that.
  .
+ THAT ENTRY STAYS EVEN THOUGH mos-system NOW DECLARES nftables TOO, and it is
+ not a duplication to clean up. A package that needs a tool declares it: this one
+ needs nft because netavark execs it, and mos-system carries it because the base
+ image's firewall vocabulary is nft whether or not containers are present. Those
+ are two independent true statements about two packages, and what the base
+ package contains is not something this one may assume.
+ .
  libsystemd0 is reached by dlopen, not by linking, and is written out even though
  the shlibs substitution emits it as well. Those are two INDEPENDENT REASONS that
  happen to share one package name, and only one of them is derivable. The
