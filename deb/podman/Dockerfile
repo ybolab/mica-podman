@@ -73,12 +73,11 @@ COPY --from=overlay etc/systemd/system/etc-containers-systemd.mount /in/etc/syst
 COPY --from=bin podman quadlet crun conmon netavark aardvark-dns catatonit /in/bin/
 
 ARG MOS_DEB_VERSION
-# The workspace version, for the one cross-boundary pin: this package's own
-# version is podman's (VERSION_FROM), while its Depends pins mos-system at the
-# version mos-system actually carries.
-ARG MOS_DEB_SYSTEM_VERSION
 ARG MOS_DEB_ARCH
 ARG SOURCE_DATE_EPOCH
+# Provenance, written into the control file by pack.sh; see build-env/deb/README.md.
+ARG MOS_DEB_SOURCE_REPO
+ARG MOS_DEB_SOURCE_COMMIT
 
 # THE PAYLOAD IS rootfs/scripts/podman-install.sh's RESULT, path for path and
 # mode for mode, plus the overlay's container configuration and the copyright.
@@ -179,7 +178,7 @@ RUN set -eu; \
 
 RUN set -eu; \
     pack.sh --root /stage --control /in/control/mos-podman.control \
-            --version "${MOS_DEB_VERSION}" --system-version "${MOS_DEB_SYSTEM_VERSION}" \
+            --version "${MOS_DEB_VERSION}" \
             --arch "${MOS_DEB_ARCH}" --out /out
 
 # ONE ARCHIVE, AND IT IS mos-podman's. The other half of the independence claim:

@@ -4,7 +4,7 @@ Architecture: @ARCH@
 Maintainer: mos build <mos@example.invalid>
 Section: admin
 Priority: optional
-Depends: mos-system (= @SYSTEM_VERSION@), nftables, libsystemd0, ${shlibs:Depends}
+Depends: mos-system, nftables, libsystemd0, ${shlibs:Depends}
 Description: mos container engine
  The seven binaries pkgs/podman compiles from pinned upstream source --
  podman and quadlet from containers/podman v5.8.6, crun 1.29.1, conmon v2.2.1,
