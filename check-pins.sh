@@ -2,8 +2,8 @@
 # Ask each of versions.env's six upstreams for its newest release and fail when
 # a pin has fallen behind.
 #
-#   bash pkgs/podman/check-pins.sh                    # live, needs network
-#   bash pkgs/podman/check-pins.sh --releases-dir DIR # against recorded JSON
+#   bash check-pins.sh                    # live, needs network
+#   bash check-pins.sh --releases-dir DIR # against recorded JSON
 #
 # `versions.env` is the upgrade interface and it
 # says so itself: "Bump a tag, bump its hash, run the image chain, read the
@@ -94,7 +94,7 @@ done
 
 # component | versions.env variable | upstream repository | line policy
 #
-# The repositories are the ones the src stage clones (pkgs/podman/Dockerfile),
+# The repositories are the ones the src stage clones (Dockerfile),
 # not a second list maintained by eye. `line` confines the comparison to the
 # pinned major; `newest` compares against everything comparable.
 COMPONENTS=(
@@ -285,7 +285,7 @@ if behind:
         scope = f" on the {major}.x line" if policy == "line" else ""
         print(f"  {name}: pinned at {pin}, upstream released {newest} on {date}{scope}.", file=sys.stderr)
     print(file=sys.stderr)
-    print("  To act on this: in pkgs/podman/versions.env set the component's *_VERSION to the", file=sys.stderr)
+    print("  To act on this: in versions.env set the component's *_VERSION to the", file=sys.stderr)
     print("  newer tag, set its *_SHA256 to the literal string PENDING, and run `make podman`. The", file=sys.stderr)
     print("  build prints the hash it computed and fails; paste it in and run `make podman` again.", file=sys.stderr)
     print("  Nothing here edits versions.env for you: moving a pin is a human act.", file=sys.stderr)

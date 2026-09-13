@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Build the container engine from upstream source into seven aarch64 binaries.
 #
-#   bash pkgs/podman/build.sh
-#   → pkgs/podman/out/{podman,quadlet,crun,conmon,netavark,aardvark-dns,catatonit}
+#   bash build.sh
+#   → out/{podman,quadlet,crun,conmon,netavark,aardvark-dns,catatonit}
 #
 # A script rather than a bare `docker buildx build` in the Makefile, for one
 # reason: the builder selection below. The first run of this build failed with
@@ -13,14 +13,14 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Three levels up, proved rather than assumed: build-env/from.sh is reached
-# through it, and a relative path here would resolve against whatever directory
-# the caller happened to be in. os-bundle-cx3576 spent two merges broken on
-# exactly that.
-REPO_ROOT="$(cd "${HERE}/../.." && pwd)"
+# This file sits at the repository root; build-env/from.sh is reached through
+# it (build-env/ is the mica-build-env source pin, fetched by tools/deps.sh),
+# and a relative path here would resolve against whatever directory the
+# caller happened to be in.
+REPO_ROOT="${HERE}"
 FROM_SH="${REPO_ROOT}/build-env/from.sh"
 [ -f "${FROM_SH}" ] || {
-    echo "error: ${FROM_SH} does not exist. pkgs/podman/build.sh derives REPO_ROOT as three levels above itself; if this file moved, that arithmetic moved with it" >&2
+    echo "error: ${FROM_SH} does not exist. build.sh derives REPO_ROOT as its own directory; run `make deps` to fetch the substrate at its pin" >&2
     exit 1
 }
 
@@ -54,7 +54,7 @@ OUT="${HERE}/out-${MOS_ARCH}"
 case "$(uname -m)" in
 x86_64) NATIVE_ARCH=amd64 ;;
 aarch64 | arm64) NATIVE_ARCH=arm64 ;;
-*) echo "error: $(uname -m) is not an architecture pkgs/podman/build.sh maps to a mos-build-* tag, so it cannot resolve the src stage's base for the build platform. build-env/build.sh maps the same two and no more" >&2; exit 1 ;;
+*) echo "error: $(uname -m) is not an architecture build.sh maps to a mos-build-* tag, so it cannot resolve the src stage's base for the build platform. build-env/build.sh maps the same two and no more" >&2; exit 1 ;;
 esac
 
 for tool in docker; do
@@ -132,7 +132,7 @@ BUILDER_DRIVER="$(printf '%s\n' "${builder_inspect}" | sed -n 's/^Driver:[[:spac
 # builder needs.
 if [ "${BUILDER_DRIVER}" = docker ] &&
     ! printf '%s\n' "${builder_inspect}" | grep -c "linux/${MOS_ARCH}" >/dev/null; then
-    echo "error: the buildx builder '${BUILDER}' uses the docker driver and does not offer linux/${MOS_ARCH} on this host, so every RUN in pkgs/podman/Dockerfile would fail with 'exec format error'. Either register the emulator on the HOST -- docker run --privileged --rm tonistiigi/binfmt --install ${MOS_ARCH} -- or unset BUILDX_BUILDER and let this script select the docker-container builder 'mos-${MOS_ARCH}', whose buildkit image bundles the emulators and needs no host registration" >&2
+    echo "error: the buildx builder '${BUILDER}' uses the docker driver and does not offer linux/${MOS_ARCH} on this host, so every RUN in Dockerfile would fail with 'exec format error'. Either register the emulator on the HOST -- docker run --privileged --rm tonistiigi/binfmt --install ${MOS_ARCH} -- or unset BUILDX_BUILDER and let this script select the docker-container builder 'mos-${MOS_ARCH}', whose buildkit image bundles the emulators and needs no host registration" >&2
     exit 1
 fi
 
@@ -142,7 +142,7 @@ fi
 #
 #   * It checked the PREVIOUS image. The binaries built here go into the NEXT
 #     one, whose package list this build has not seen.
-#   * It was a cycle. rootfs/build.sh now stages pkgs/podman/out, so the
+#   * It was a cycle. rootfs/build.sh now stages out, so the
 #     rootfs needed the engine and the engine's check needed the rootfs; a
 #     clean checkout could build neither.
 #
@@ -156,7 +156,7 @@ fi
 # editing a comment in versions.env does not invalidate every compile stage
 # below it.
 #
-# The stripping is pkgs/podman/versions-stamp.sh's and no longer this
+# The stripping is versions-stamp.sh's and no longer this
 # script's: that file also computes the digest the export is stamped with at
 # the bottom of this script, and a build that normalised versions.env one way
 # and stamped it another would record a number describing an input it had not
@@ -173,7 +173,7 @@ if [ ! -s "${HERE}/versions.lock" ]; then
 fi
 
 # The four builder images, resolved out of build-env/images.env before
-# anything is deleted or built. pkgs/podman/Dockerfile declares them with no
+# anything is deleted or built. Dockerfile declares them with no
 # defaults, so a missing one is refused here by name -- with the command that
 # makes it -- rather than by docker, which reports a missing localhost tag as a
 # failed pull from a registry called `localhost`.

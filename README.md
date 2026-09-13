@@ -1,13 +1,26 @@
-# `pkgs/podman` — the container engine, built from source
+# mica-podman — the container engine of Mica OS, built from source
 
-Produces seven binaries for `MOS_ARCH` (arm64 by default) into
-`pkgs/podman/out-<arch>/`. Same arrangement as `boards/cx3576/bsp/kernel/`: builder
-stages, then a `FROM scratch AS artifact` that `-o` exports. The output
-directory follows the architecture so an arm64 and an amd64 set can coexist.
+This repository produces seven binaries for `MOS_ARCH` (arm64 by default)
+into `out-<arch>/` and packs them, with the container configuration under
+`overlay/`, as the Debian package `mica-podman`. It stands on the
+`mica-build-env` substrate, fetched at its pin into `build-env/`:
 
 ```
-make podman          # → pkgs/podman/out-$MOS_ARCH/
+make deps            # build-env/ at deps/sources/mica-build-env.json
+make build-env       # the builder images
+MOS_ARCH=arm64 make podman   # -> out-arm64/
+make pool            # both archives into _out/debs/<arch>/pool, indexed
+make package-gate    # the gate over that pool
+make publish         # the release build-<commit12> of this commit
 ```
+
+The assembly (`ybolab/mica-build`) imports the archives through
+`deps/packages/mica-podman.json` (`make os-lock-bump COMPONENT=mica-podman`
+there) and never builds them itself.
+
+`build.sh` is builder stages, then a `FROM scratch AS artifact` that `-o`
+exports. The output directory follows the architecture so an arm64 and an
+amd64 set can coexist.
 
 | Binary | What it is |
 |---|---|
@@ -20,7 +33,7 @@ make podman          # → pkgs/podman/out-$MOS_ARCH/
 | `catatonit` | container init, for `--init` |
 
 The `podman` producer (`deb/podman/`) takes the set from here and packs it as
-`mos-podman`; the rootfs composition installs that package out of
+`mica-podman`; the rootfs composition installs that package out of
 `_out/debs/<arch>/` and never sees this directory. The producer's `PREPARE`
 hook will build the seven binaries itself if they are absent, which is roughly
 three quarters of an hour inside a packaging hook -- `make os-deb-preflight`
@@ -77,7 +90,7 @@ the same reason `mos-build-go` carries no C compiler and the Go stage installs
 
 Building for **arm64 needs an arm64 builder family**, because a `localhost/` tag
 carries exactly one architecture where a `name:tag@sha256:` digest is a
-multi-architecture index. `pkgs/podman/build.sh` refuses the mismatch by name.
+multi-architecture index. `build.sh` refuses the mismatch by name.
 
 ### Two bases, and why there are five arguments for four images
 

@@ -1,10 +1,10 @@
-Package: mos-podman
+Package: mica-podman
 Version: @VERSION@
 Architecture: @ARCH@
 Maintainer: mos build <mos@example.invalid>
 Section: admin
 Priority: optional
-Depends: mos-system, nftables, libsystemd0, ${shlibs:Depends}
+Depends: mica-system, nftables, libsystemd0, ${shlibs:Depends}
 Description: mos container engine
  The seven binaries pkgs/podman compiles from pinned upstream source --
  podman and quadlet from containers/podman v5.8.6, crun 1.29.1, conmon v2.2.1,
@@ -35,7 +35,7 @@ Description: mos container engine
  etc-containers-systemd.mount, is installed and deliberately not enabled --
  statically enabling the bind would give anything able to write
  /mnt/state/quadlet a root-capable container at the next reboot with no operator
- decision in the path. mosd's ContainerReconciler enables and starts it from the
+ decision in the path. micad's ContainerReconciler enables and starts it from the
  container.enabled setting, which is the runtime-scoped enablement every other
  mos-driven unit uses.
  .
@@ -53,9 +53,9 @@ Description: mos container engine
  it the first `podman run` fails with "netavark: nftables error: unable to
  execute nft", and no NEEDED-soname check can predict that.
  .
- THAT ENTRY STAYS EVEN THOUGH mos-system NOW DECLARES nftables TOO, and it is
+ THAT ENTRY STAYS EVEN THOUGH mica-system NOW DECLARES nftables TOO, and it is
  not a duplication to clean up. A package that needs a tool declares it: this one
- needs nft because netavark execs it, and mos-system carries it because the base
+ needs nft because netavark execs it, and mica-system carries it because the base
  image's firewall vocabulary is nft whether or not containers are present. Those
  are two independent true statements about two packages, and what the base
  package contains is not something this one may assume.
@@ -77,25 +77,25 @@ Description: mos container engine
  journald logging fails the quiet way. One duplicated name in this field is the
  price of that not happening silently.
  .
- mos-system is depended on at the EXACT POOL VERSION, and this entry CHANGED ITS
- MIND. The dependency itself has not moved: mos-system owns the mounts this
+ mica-system is depended on at the EXACT POOL VERSION, and this entry CHANGED ITS
+ MIND. The dependency itself has not moved: mica-system owns the mounts this
  package's configuration names -- storage.conf puts the container graphroot on
  /mos/containers/storage, which is the MOS-owned namespace on DATA,
  and etc-containers-systemd.mount binds /mnt/state/quadlet, which needs
- mos-seed-state.service from the same package. That is why this package depends
+ mica-seed-state.service from the same package. That is why this package depends
  on it at all, and it is unchanged.
  .
- What changed is who builds mos-system. This entry was written UNVERSIONED
- deliberately, and the reason held at the time: no producer emitted mos-system,
+ What changed is who builds mica-system. This entry was written UNVERSIONED
+ deliberately, and the reason held at the time: no producer emitted mica-system,
  so the pool gate classified the reference EXTERNAL and only reported it, and
  pinning a package this repository did not build would have asserted a coupling
  that did not exist. That has been superseded -- rootfs/packages-src/system
- now produces mos-system from THIS commit, so the gate classifies the reference
+ now produces mica-system from THIS commit, so the gate classifies the reference
  local-real and requires the exact pool version. The pool carries one version by
  rule, so the pin costs nothing inside it and stops an archive from resolving
- against a different pool generation; mos-apid already spells its mosd
+ against a different pool generation; mica-apid already spells its micad
  dependency the same way.
  .
- There is no dependency on mosd, mos-apid, mos-mqttd or mos-mqtt-broker. The
+ There is no dependency on micad, mica-apid, mica-mqttd or mica-mqtt-broker. The
  engine is installed alongside them, not above them: it runs without any of them
- present, and mosd's use of it is mosd's dependency and not this one's.
+ present, and micad's use of it is micad's dependency and not this one's.

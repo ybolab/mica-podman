@@ -1,5 +1,5 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: mos-podman
+Upstream-Name: mica-podman
 Comment: THE FILES STANZAS BELOW NAME INSTALLED PATHS, not source paths. This
  package has no source tree of its own: it carries seven binaries compiled from
  six pinned upstream projects, and mos's own container configuration. A

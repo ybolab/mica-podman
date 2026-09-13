@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 # check=skip=InvalidDefaultArgInFrom
-# The podman producer: the `mos-podman` package.
+# The podman producer: the `mica-podman` package.
 #
 #   make os-deb-podman  ->  build-env/deb/build.sh --producer podman --arch <amd64|arm64>
 #
 # This file only STAGES, ASSERTS and PACKS. The seven binaries were compiled by
-# this producer's PREPARE hook -- pkgs/podman/build.sh, six pinned upstreams
+# this producer's PREPARE hook -- build.sh, six pinned upstreams
 # across four toolchains -- and arrive through the `bin` context; the container
 # configuration arrives through `overlay`, which is rootfs/overlay and the
 # tree that owns those files today.
@@ -30,7 +30,7 @@ FROM ${MOS_BUILD_DEB} AS pack
 # says so and it is why pack.sh refuses an architecture mismatch -- and
 # mos-build-deb carries dpkg-dev and no runtime. Without these, packing dies with
 # `cannot find library libjson-c.so.5 needed by .../usr/bin/crun` and the package
-# is never produced. The mosd producers never meet this because their Rust
+# is never produced. The micad producers never meet this because their Rust
 # binaries need only libc, which every base carries.
 #
 # THE LIST IS rootfs/stages/31-feature-containers.Dockerfile'S, read from there
@@ -63,7 +63,7 @@ COPY copyright payload.manifest /in/
 # The four configuration files podman actually reads, and the Quadlet mount
 # unit, at the paths rootfs/scripts/overlay-install.sh installs them to.
 # PLAN-036 section 3: "Podman's configuration and Quadlet mount belong to
-# mos-podman, not to the common system overlay."
+# mica-podman, not to the common system overlay."
 COPY --from=overlay etc/containers/containers.conf \
                     etc/containers/policy.json \
                     etc/containers/registries.conf \
@@ -71,6 +71,8 @@ COPY --from=overlay etc/containers/containers.conf \
 COPY --from=overlay etc/systemd/system/etc-containers-systemd.mount /in/etc/systemd/system/
 
 COPY --from=bin podman quadlet crun conmon netavark aardvark-dns catatonit /in/bin/
+# The pins those binaries were built from, staged beside them by prepare.sh.
+COPY --from=bin versions.env /in/versions.env
 
 ARG MOS_DEB_VERSION
 ARG MOS_DEB_ARCH
@@ -122,7 +124,7 @@ ARG MOS_DEB_SOURCE_COMMIT
 # NO multi-user.target.wants LINK, and no maintainer script that enables
 # anything. See ENABLEMENT in producer.env for both halves of why.
 #
-# NOT a conffile, deliberately, and the same decision the mosd producers record:
+# NOT a conffile, deliberately, and the same decision the micad producers record:
 # six of these paths are under /etc, but this root filesystem is an immutable
 # dm-verity squashfs and nobody edits anything in it. A conffiles entry would
 # promise a three-way merge that cannot happen. Do not "fix" this into one.
@@ -132,7 +134,8 @@ RUN set -eu; \
                        /stage/usr /stage/usr/bin /stage/usr/lib /stage/usr/lib/systemd \
                        /stage/usr/lib/systemd/system-generators \
                        /stage/usr/libexec /stage/usr/libexec/podman \
-                       /stage/usr/share /stage/usr/share/doc /stage/usr/share/doc/mos-podman; \
+                       /stage/usr/share /stage/usr/share/doc /stage/usr/share/doc/mica-podman \
+                       /stage/usr/share/mica-podman; \
     install -m 0755 /in/bin/podman /stage/usr/bin/podman; \
     install -m 0755 /in/bin/crun   /stage/usr/bin/crun; \
     for b in quadlet conmon netavark aardvark-dns catatonit; do \
@@ -146,11 +149,12 @@ RUN set -eu; \
     done; \
     install -m 0644 /in/etc/systemd/system/etc-containers-systemd.mount \
                     /stage/etc/systemd/system/etc-containers-systemd.mount; \
-    install -m 0644 /in/copyright /stage/usr/share/doc/mos-podman/copyright
+    install -m 0644 /in/copyright /stage/usr/share/doc/mica-podman/copyright; \
+    install -m 0644 /in/versions.env /stage/usr/share/mica-podman/versions.env
 
 # PRODUCER INDEPENDENCE, asserted rather than described, in the form that is
 # meaningful for a producer whose payload is a file set rather than a compile:
-# the staged tree is EXACTLY the declared set. The mosd producers assert the
+# the staged tree is EXACTLY the declared set. The micad producers assert the
 # same boundary by failing when a binary they do not own turns up in their
 # target directory; here the equivalent is a path -- of any kind, extra or
 # missing -- that payload.manifest does not name.
@@ -171,28 +175,28 @@ RUN set -eu; \
         | awk -F'\t' '{ if ($2 == "") print $1; else print $1 " -> " $2 }' \
         | LC_ALL=C sort > /tmp/staged; \
     if ! diff -u /tmp/declared /tmp/staged; then \
-        echo "error: the staged tree is not the payload pkgs/podman/deb/podman/payload.manifest declares. '-' is declared and not staged, '+' is staged and not declared; mos-podman owns exactly what that file lists" >&2; \
+        echo "error: the staged tree is not the payload deb/podman/payload.manifest declares. '-' is declared and not staged, '+' is staged and not declared; mica-podman owns exactly what that file lists" >&2; \
         exit 1; \
     fi; \
     echo "podman-deb: the staged tree is exactly the $(wc -l < /tmp/declared) declared paths"
 
 RUN set -eu; \
-    pack.sh --root /stage --control /in/control/mos-podman.control \
+    pack.sh --root /stage --control /in/control/mica-podman.control \
             --version "${MOS_DEB_VERSION}" \
             --arch "${MOS_DEB_ARCH}" --out /out
 
-# ONE ARCHIVE, AND IT IS mos-podman's. The other half of the independence claim:
+# ONE ARCHIVE, AND IT IS mica-podman's. The other half of the independence claim:
 # PACKAGES declares one package, so a producer that emitted a second archive
 # would be one whose declaration and output had come apart -- and /out is what
 # `-o type=local` copies into the shared pool, where a stray archive would be
 # indexed by repo.sh as if some producer meant it.
 RUN set -eu; \
     got="$(find /out -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')"; \
-    want="mos-podman_${MOS_DEB_VERSION}_${MOS_DEB_ARCH}.deb "; \
-    [ "${got}" = "${want}" ] || { echo "error: this producer emits mos-podman and nothing else, and /out holds '${got}' rather than '${want}'" >&2; exit 1; }; \
+    want="mica-podman_${MOS_DEB_VERSION}_${MOS_DEB_ARCH}.deb "; \
+    [ "${got}" = "${want}" ] || { echo "error: this producer emits mica-podman and nothing else, and /out holds '${got}' rather than '${want}'" >&2; exit 1; }; \
     echo "podman-deb: /out holds ${want}and no other archive"
 
-# The export stage, the shape pkgs/mosd/deb/*/Dockerfile end in: `-o
+# The export stage, the shape pkgs/micad/deb/*/Dockerfile end in: `-o
 # type=local` writes this stage's filesystem into _out/debs/<arch>/pool/ and
 # nothing here installs into a root.
 FROM scratch AS out

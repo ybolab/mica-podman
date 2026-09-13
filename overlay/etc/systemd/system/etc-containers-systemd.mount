@@ -1,0 +1,40 @@
+[Unit]
+Description=Quadlet unit directory on DATA/state
+# An integrator installs a container application by dropping a
+# .container (or .network, .volume, .pod) file where Quadlet reads it, and
+# systemd's generator turns it into a service.
+#
+# WHERE QUADLET ACTUALLY READS, MEASURED RATHER THAN ASSUMED. The plan's first
+# draft said the file goes into /usr/local/lib/systemd/system, the STATE-backed
+# writable system unit directory, on the reasoning that installing a
+# container and installing an extension should be the same act. That was wrong.
+# `quadlet --dryrun` on the shipped binary reports its search path verbatim:
+#
+#   No files parsed from [/run/containers/systemd /etc/containers/systemd
+#                         /usr/share/containers/systemd]
+#
+# Quadlet does not look in the systemd unit path at all. Of its three
+# directories, /run is tmpfs and does not survive a reboot, and the other two
+# are inside the read-only dm-verity squashfs — so without this bind there is
+# NOWHERE on the device an operator can put a Quadlet file. The feature would
+# have shipped inert, and the failure is silent: the file is written to a
+# read-only path, or to /run where it disappears at the next boot.
+#
+# /etc/containers/systemd is the one of the three that is meant to be the
+# administrator's, so it is the one bound. /usr/share/containers/systemd stays
+# inside the verity root, which is the intended asymmetry: units WE ship are
+# immutable, units the operator installs are theirs.
+Requires=mica-seed-state.service
+After=mica-seed-state.service
+RequiresMountsFor=/mnt/data/state /mos/containers
+
+[Mount]
+# Named for what it holds rather than mirroring the target path, on the same
+# reasoning as usr-local-lib-systemd-system.mount.
+What=/mnt/data/state/quadlet
+Where=/etc/containers/systemd
+Type=none
+Options=bind
+
+[Install]
+WantedBy=local-fs.target

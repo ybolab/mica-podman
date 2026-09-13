@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
-# What pkgs/podman/out-<arch> was built FROM, written into it and read back
+# What out-<arch> was built FROM, written into it and read back
 # out of it.
 #
-#   bash pkgs/podman/versions-stamp.sh --lock          # the build's input
-#   bash pkgs/podman/versions-stamp.sh --digest        # its sha256
-#   bash pkgs/podman/versions-stamp.sh --stamp <dir>   # write <dir>/VERSIONS.env
-#   bash pkgs/podman/versions-stamp.sh --check <dir>   # refuse a stale one
+#   bash versions-stamp.sh --lock          # the build's input
+#   bash versions-stamp.sh --digest        # its sha256
+#   bash versions-stamp.sh --stamp <dir>   # write <dir>/VERSIONS.env
+#   bash versions-stamp.sh --check <dir>   # refuse a stale one
 #
-# THE DEFECT THIS CLOSES is named in pkgs/podman/build.sh's own words:
+# THE DEFECT THIS CLOSES is named in build.sh's own words:
 # "a stale out/ from the other architecture looks exactly like a fresh one to
 # anything that only checks the files are present". The directory-per-
 # architecture naming answered the second half of that sentence; the first half
 # -- stale -- was left open, and out-<arch> is reused rather than rebuilt by
-# pkgs/podman/deb/podman/prepare.sh and staged as it stands by
+# deb/podman/prepare.sh and staged as it stands by
 # rootfs/build.sh. Bump a version in versions.env, and both would go on
 # packaging and shipping the binaries compiled from the version before it, with
 # every check green: the seven files are all present, all executable, and all
@@ -21,7 +21,7 @@
 #
 # THE STAMP IS OVER THE LOCK, NOT OVER versions.env. build.sh derives
 # versions.lock by stripping comments and blank lines, and the lock is what
-# pkgs/podman/Dockerfile COPYs -- that file says why, and it is measured: a
+# Dockerfile COPYs -- that file says why, and it is measured: a
 # paragraph of prose added to versions.env invalidated every compile stage
 # below it, two hours of recompiling to record a rationale. A stamp over the
 # raw file would put that cost back and put it somewhere worse, because it
@@ -37,7 +37,7 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VERSIONS_ENV="${HERE}/versions.env"
 # The file the stamp is written into. Named beside SHA256SUMS and NEEDED.txt,
-# which are the other two records pkgs/podman/Dockerfile's verify stage
+# which are the other two records Dockerfile's verify stage
 # leaves in the export, and in the KEY=value shape pkgs/rauc's
 # RAUC_VERSION.env already uses for the same job.
 STAMP_NAME="VERSIONS.env"
@@ -104,7 +104,7 @@ case "${MODE}" in
         exit 1
     }
     [ "${got}" = "${want}" ] || {
-        echo "error: ${out} was built from a different pkgs/podman/versions.env than the one in this tree.
+        echo "error: ${out} was built from a different versions.env than the one in this tree.
   stamped:  ${got}
   current:  ${want}
 Those binaries are the versions.env of some earlier build, and every check that
@@ -114,7 +114,7 @@ executable and the right architecture. Rebuild them -- MOS_ARCH=$(basename "${ou
     }
     ;;
 *)
-    echo "usage: bash pkgs/podman/versions-stamp.sh --lock | --digest | --stamp <dir> | --check <dir>" >&2
+    echo "usage: bash versions-stamp.sh --lock | --digest | --stamp <dir> | --check <dir>" >&2
     exit 1
     ;;
 esac

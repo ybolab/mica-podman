@@ -4,19 +4,19 @@
 # `bin` context.
 #
 # WHY A HOOK AND NOT A KEY IN producer.env. The binaries are compiled by
-# pkgs/podman/build.sh -- six upstream clones verified against their pinned
+# build.sh -- six upstream clones verified against their pinned
 # source hashes, across four language toolchains, the whole of it under
 # emulation for arm64. That is an input to a compile, not to a docker build, and
 # no producer.env key describes it. The generic driver packs what it is handed;
 # this decides what it is handed.
 #
-# EXISTING OUTPUT IS REUSED. pkgs/podman/build.sh writes out-<arch>/ and a
+# EXISTING OUTPUT IS REUSED. build.sh writes out-<arch>/ and a
 # cold arm64 build of it takes roughly three quarters of an hour, so a complete
 # one is used as it stands -- the same directory, and the same reuse,
 # rootfs/build.sh stages into an image. It is rebuilt only when a binary
 # is missing from it. The directory carries the architecture in its name, so the
 # other architecture's output cannot be mistaken for this one's -- and since
-# pkgs/podman/versions-stamp.sh exists, a directory compiled from a
+# versions-stamp.sh exists, a directory compiled from a
 # superseded versions.env cannot be mistaken for a current one either, which is
 # the half of that sentence the naming never covered.
 #
@@ -37,21 +37,21 @@ PREFLIGHT="${MOS_DEB_PREFLIGHT:-0}"
 # started. Every other variable is required either way.
 for v in MOS_DEB_REPO_ROOT MOS_DEB_ARCH MOS_DEB_PRODUCER; do
     [ -n "${!v:-}" ] || {
-        echo "error: ${v} is not set. This script is pkgs/podman/deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
+        echo "error: ${v} is not set. This script is deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
         exit 1
     }
 done
 [ "${PREFLIGHT}" != 0 ] || [ -n "${MOS_DEB_STAGE:-}" ] || {
-    echo "error: MOS_DEB_STAGE is not set. This script is pkgs/podman/deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
+    echo "error: MOS_DEB_STAGE is not set. This script is deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
     exit 1
 }
 
 REPO_ROOT="${MOS_DEB_REPO_ROOT}"
 ARCH="${MOS_DEB_ARCH}"
 STAGE="${MOS_DEB_STAGE:-}"
-BUILD_SH="${REPO_ROOT}/pkgs/podman/build.sh"
-VERSIONS_STAMP_SH="${REPO_ROOT}/pkgs/podman/versions-stamp.sh"
-OUT="${REPO_ROOT}/pkgs/podman/out-${ARCH}"
+BUILD_SH="${REPO_ROOT}/build.sh"
+VERSIONS_STAMP_SH="${REPO_ROOT}/versions-stamp.sh"
+OUT="${REPO_ROOT}/out-${ARCH}"
 
 [ -f "${BUILD_SH}" ] || {
     echo "error: ${BUILD_SH} does not exist; it is what compiles the binaries this producer packages" >&2
@@ -66,12 +66,12 @@ case "${ARCH}" in
 amd64) ELF_ARCH=x86-64 ;;
 arm64) ELF_ARCH=aarch64 ;;
 *)
-    echo "error: MOS_DEB_ARCH is '${ARCH}'. pkgs/podman/build.sh builds amd64 and arm64 and no other, and this producer's ARCHES says the same" >&2
+    echo "error: MOS_DEB_ARCH is '${ARCH}'. build.sh builds amd64 and arm64 and no other, and this producer's ARCHES says the same" >&2
     exit 1
     ;;
 esac
 
-# THE SET THIS PRODUCER OWNS, and the only set it stages. pkgs/podman builds
+# THE SET THIS PRODUCER OWNS, and the only set it stages. mica-podman builds
 # exactly these and rootfs/scripts/podman-install.sh installs exactly these.
 BINARIES=(podman quadlet crun conmon netavark aardvark-dns catatonit)
 
@@ -96,7 +96,7 @@ done
 #                       advance is the whole point. Refusing instead would mean
 #                       `make os-debs` could no longer build a pool on a fresh
 #                       host -- which its own help line promises -- and would
-#                       be arbitrary besides, since the mosd, mqtt and rauc
+#                       be arbitrary besides, since the micad, mqtt and rauc
 #                       hooks compile from their hooks too.
 #   stamp stale      -> the normal path REFUSES. So this is MISSING.
 #
@@ -138,14 +138,14 @@ Run 'MOS_ARCH=${ARCH} make podman' first to pay that cost where it can be seen."
     echo "preflight-missing: ${n_missing}"
     echo "preflight-warned: ${n_warned}"
     if [ "${n_missing}" -gt 0 ]; then
-        echo "prepare.sh: refusing to build mos-podman: ${OUT} holds all ${#BINARIES[@]} binaries and they were compiled from a versions.env this tree no longer has. Nothing was built and no container was started." >&2
+        echo "prepare.sh: refusing to build mica-podman: ${OUT} holds all ${#BINARIES[@]} binaries and they were compiled from a versions.env this tree no longer has. Nothing was built and no container was started." >&2
         exit 1
     fi
     if [ "${n_warned}" -gt 0 ]; then
-        echo "prepare.sh: mos-podman will build ${n_warned} of its ${examined} inputs during the run (${OUT})" >&2
+        echo "prepare.sh: mica-podman will build ${n_warned} of its ${examined} inputs during the run (${OUT})" >&2
         exit 0
     fi
-    echo "prepare.sh: pre-flight found all ${examined} inputs of mos-podman present and stamped for ${ARCH} (${OUT})"
+    echo "prepare.sh: pre-flight found all ${examined} inputs of mica-podman present and stamped for ${ARCH} (${OUT})"
     exit 0
 fi
 
@@ -154,7 +154,7 @@ if [ -n "${missing}" ]; then
     MOS_ARCH="${ARCH}" bash "${BUILD_SH}"
     for b in "${BINARIES[@]}"; do
         [ -f "${OUT}/${b}" ] || {
-            echo "error: pkgs/podman/build.sh reported success and ${OUT}/${b} does not exist" >&2
+            echo "error: build.sh reported success and ${OUT}/${b} does not exist" >&2
             exit 1
         }
     done
@@ -205,10 +205,18 @@ done
 for b in "${BINARIES[@]}"; do
     cp "${OUT}/${b}" "${STAGE}/${b}"
 done
+# The pins the binaries were built from ride in the payload as
+# /usr/share/mica-podman/versions.env: the assembly's tests (the smoke
+# register, the install-closure gate, the netavark kernel check) read the
+# engine's expected versions out of the archive they install rather than out
+# of a copy of this file, so a pin and the binary it describes cannot drift
+# apart across the repository boundary. The stamp check above already proved
+# out-<arch> was compiled from this exact versions.env.
+cp "${REPO_ROOT}/versions.env" "${STAGE}/versions.env"
 
-# What pkgs/podman/build.sh also writes into out-<arch> -- SHA256SUMS, and
+# What build.sh also writes into out-<arch> -- SHA256SUMS, and
 # anything a later revision of it adds -- stays there. The `bin` context is what
 # the payload is built from, and a file in it that no COPY names is a file
 # nothing accounts for; the payload assertion in this producer's Dockerfile is
 # over the staged ROOT, so it would never see it.
-echo "prepare: staged ${BINARIES[*]} for ${ARCH} into ${STAGE}"
+echo "prepare: staged ${BINARIES[*]} and versions.env for ${ARCH} into ${STAGE}"

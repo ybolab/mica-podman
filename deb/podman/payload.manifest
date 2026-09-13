@@ -1,6 +1,6 @@
-# THE DECLARED PAYLOAD OF mos-podman, and the producer-independence assertion.
+# THE DECLARED PAYLOAD OF mica-podman, and the producer-independence assertion.
 #
-# pkgs/podman/deb/podman/Dockerfile generates the same three columns out of
+# deb/podman/Dockerfile generates the same three columns out of
 # the staged tree and refuses any difference, so this file is the statement of
 # what this producer owns and the staged tree is the evidence. A path that
 # appears in one and not the other fails the build naming both sides. Comment
@@ -12,7 +12,7 @@
 # of that script rather than restated from a plan; the /etc/containers files and
 # etc-containers-systemd.mount are the overlay's, at the paths
 # rootfs/scripts/overlay-install.sh installs them to. The directories are
-# listed because they are payload too: PLAN-036 gives mos-podman the
+# listed because they are payload too: PLAN-036 gives mica-podman the
 # /etc/containers subtree outright, and the pool's ownership check does not flag
 # directory overlap, so nothing else would catch one going missing.
 0644 f /etc/containers/containers.conf
@@ -20,7 +20,8 @@
 0644 f /etc/containers/registries.conf
 0644 f /etc/containers/storage.conf
 0644 f /etc/systemd/system/etc-containers-systemd.mount
-0644 f /usr/share/doc/mos-podman/copyright
+0644 f /usr/share/doc/mica-podman/copyright
+0644 f /usr/share/mica-podman/versions.env
 0755 d /etc
 0755 d /etc/containers
 0755 d /etc/containers/systemd
@@ -35,7 +36,8 @@
 0755 d /usr/libexec/podman
 0755 d /usr/share
 0755 d /usr/share/doc
-0755 d /usr/share/doc/mos-podman
+0755 d /usr/share/doc/mica-podman
+0755 d /usr/share/mica-podman
 0755 f /usr/bin/crun
 0755 f /usr/bin/podman
 0755 f /usr/libexec/podman/aardvark-dns

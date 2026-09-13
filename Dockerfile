@@ -1,12 +1,12 @@
 # syntax=docker/dockerfile:1@sha256:ecfaec9ed6d810b56388c508f4121597bfbba70d41a6dfeee4d8cad5f295fc32
 # The container engine, built from upstream source for aarch64.
 #
-#   make podman -> pkgs/podman/out/: podman, quadlet, crun, conmon, netavark,
+#   make podman -> out/: podman, quadlet, crun, conmon, netavark,
 #   aardvark-dns, catatonit, SHA256SUMS
 #
 # Same shape as boards/cx3576/bsp/kernel/Dockerfile: builder stages, then a final
 # scratch stage that `-o` exports. Nothing here installs into a rootfs;
-# rootfs/build.sh stages the output as it stages modules.tar and mosd.
+# rootfs/build.sh stages the output as it stages modules.tar and micad.
 
 # The engine is built here for version control, not size: trixie ships podman
 # 5.4.2, crun 1.21 and netavark 1.14, and building makes the version a
@@ -45,12 +45,12 @@
 # is what keeps them shared.
 
 # The four builder images, injected from build-env/images.env by
-# build-env/from.sh, which pkgs/podman/build.sh calls. Bare tags --
+# build-env/from.sh, which build.sh calls. Bare tags --
 # debian:trixie-slim, golang:1.25-trixie, rust:1.90-trixie -- are repointed on
 # upstream's own schedule, which leaves "which compiler built the engine on
 # this device" answerable only from a build log. mos-build-go is Go 1.26.7 and
 # mos-build-rust is Rust 1.98.0, both pinned by sha256 in images.env;
-# pkgs/podman/README.md records what was checked under them beyond "it built".
+# README.md records what was checked under them beyond "it built".
 
 # No defaults here, deliberately, and this is the one place in this file that
 # differs from ELF_ARCH's reasoning below. Without a value docker refuses with
@@ -126,7 +126,7 @@ COPY versions.lock /versions.env
 
 # A PENDING pin prints the hash it computed and fails. There is deliberately
 # no environment variable that softens it into a warning: a build that warns
-# while pkgs/podman/versions.env says it fails teaches a reader to stop
+# while versions.env says it fails teaches a reader to stop
 # believing the documentation. A bump costs two runs instead of one, and buys
 # that `git log` can never contain a commit whose engine came from an unhashed
 # tag.
@@ -139,9 +139,9 @@ RUN --mount=type=cache,target=/root/.cache/git \
         got="$(git -C "/src/${name}" archive --format=tar "${tag}" | sha256sum | cut -d' ' -f1)"; \
         if [ "${want}" = "PENDING" ]; then \
             echo "HASH ${name} ${tag} ${got}"; \
-            echo "error: ${name} is pinned to ${tag} with no hash. Record the hash above against ${name} in pkgs/podman/versions.env and run again; until then this build would compile whatever the tag points at today, which is a different fact from the source this tree agreed to ship" >&2; exit 1; \
+            echo "error: ${name} is pinned to ${tag} with no hash. Record the hash above against ${name} in versions.env and run again; until then this build would compile whatever the tag points at today, which is a different fact from the source this tree agreed to ship" >&2; exit 1; \
         elif [ "${want}" != "${got}" ]; then \
-            echo "error: ${name} ${tag} hashes to ${got}, but pkgs/podman/versions.env pins ${want}. Either the tag was moved upstream or the pin is stale; do not paste the new hash in without finding out which" >&2; exit 1; \
+            echo "error: ${name} ${tag} hashes to ${got}, but versions.env pins ${want}. Either the tag was moved upstream or the pin is stale; do not paste the new hash in without finding out which" >&2; exit 1; \
         else \
             echo "ok ${name} ${tag} ${got}"; \
         fi; \
@@ -252,7 +252,7 @@ RUN --mount=type=cache,target=/ccache,id=ccache-c \
 
 # mos-build-rust is Rust 1.98.0, from the tarball images.env pins by sha256.
 # This stage does not run netavark's or aardvark-dns's test suites, so "it
-# built" is the whole claim -- pkgs/podman/README.md records what was checked
+# built" is the whole claim -- README.md records what was checked
 # beyond that. protobuf-compiler and pkgconf stay here: netavark's build
 # script runs protoc for its plugin API, which is a fact about netavark.
 # ca-certificates is not in this list because mos-build-base carries and
