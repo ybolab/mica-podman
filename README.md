@@ -1,6 +1,6 @@
 # mica-podman — the container engine of Mica OS, built from source
 
-This repository produces seven binaries for `MOS_ARCH` (arm64 by default)
+This repository produces seven binaries for `MICA_ARCH` (arm64 by default)
 into `out-<arch>/` and packs them, with the container configuration under
 `overlay/`, as the Debian package `mica-podman`. It stands on the
 `mica-build-env` substrate, fetched at its pin into `build-env/`:
@@ -8,7 +8,7 @@ into `out-<arch>/` and packs them, with the container configuration under
 ```
 make deps            # build-env/ at deps/sources/mica-build-env.json
 make build-env       # the builder images
-MOS_ARCH=arm64 make podman   # -> out-arm64/
+MICA_ARCH=arm64 make podman   # -> out-arm64/
 make pool            # both archives into _out/debs/<arch>/pool, indexed
 make package-gate    # the gate over that pool
 make publish         # the release build-<commit12> of this commit
@@ -37,7 +37,7 @@ The `podman` producer (`deb/podman/`) takes the set from here and packs it as
 `_out/debs/<arch>/` and never sees this directory. The producer's `PREPARE`
 hook will build the seven binaries itself if they are absent, which is roughly
 three quarters of an hour inside a packaging hook -- `make os-deb-preflight`
-says so before `os-debs` starts, and `MOS_ARCH=<arch> make podman` is how to
+says so before `os-debs` starts, and `MICA_ARCH=<arch> make podman` is how to
 pay that cost where it can be seen.
 
 ## Bumping a version
@@ -56,7 +56,7 @@ actually compiled. A tag can be moved upstream; a tree hash cannot.
 
 ## Which compiler builds it
 
-The four builder stages stand on `localhost/mos-build-{base,c,go,rust}`, built
+The four builder stages stand on `localhost/mica-build-{base,c,go,rust}`, built
 by `make build-env` from `build-env/images.env` — a digest-pinned floor
 rather than three upstream tags that are repointed on someone else's schedule.
 Each binary is proven under that toolchain rather than merely rebuilt, on
@@ -81,11 +81,11 @@ reports `netavark 2.1.0` as its network backend, with `+SECCOMP +JSON_C` —
 which is the `-dev` list below doing its job.
 
 The `-dev` packages stay in this Dockerfile and are deliberately **not** in
-`mos-build-c`. libseccomp, libcap, libjson-c, libyajl, glib and libsystemd are
+`mica-build-c`. libseccomp, libcap, libjson-c, libyajl, glib and libsystemd are
 facts about crun, conmon and catatonit; hoisting them into the shared image
 would put them in the cache key of every other component that stands on it,
 which is the ~42-minute measurement recorded at the top of the Dockerfile. For
-the same reason `mos-build-go` carries no C compiler and the Go stage installs
+the same reason `mica-build-go` carries no C compiler and the Go stage installs
 `build-essential` itself.
 
 Building for **arm64 needs an arm64 builder family**, because a `localhost/` tag
@@ -99,15 +99,15 @@ Dockerfile takes five base arguments:
 
 | argument | architecture | which stages |
 | --- | --- | --- |
-| `MOS_BUILD_BASE` | the target's, `MOS_ARCH` | `verify` |
-| `MOS_BUILD_C` | the target's | `c-build` |
-| `MOS_BUILD_GO` | the target's | `go-build` |
-| `MOS_BUILD_RUST` | the target's | `rust-build` |
-| `MOS_BUILD_BASE_NATIVE` | the **host's**, `uname -m` | `src` |
+| `MICA_BUILD_BASE` | the target's, `MICA_ARCH` | `verify` |
+| `MICA_BUILD_C` | the target's | `c-build` |
+| `MICA_BUILD_GO` | the target's | `go-build` |
+| `MICA_BUILD_RUST` | the target's | `rust-build` |
+| `MICA_BUILD_BASE_NATIVE` | the **host's**, `uname -m` | `src` |
 
 `src` is the odd one because it is the one stage that does not compile: it
 shallow-clones six upstreams and hashes them, and `FROM --platform=$BUILDPLATFORM`
-keeps that out of emulation. Its base is therefore `mos-build-base` at the
+keeps that out of emulation. Its base is therefore `mica-build-base` at the
 architecture buildkit itself runs on, which under the architecture-qualified
 tag scheme is a different image with a different name — `:amd64` and `:arm64`
 coexist and neither is "the" base. `build.sh` resolves it through a second
@@ -126,8 +126,8 @@ architecture, nor the argument. The same is true of the OCI layout the
 docker-container driver gets instead. Measured on both driver paths; the arm64
 target's build for the amd64 host is what stopped on it.
 
-Practically: `MOS_ARCH=arm64 make podman` on an amd64 host needs
-`MOS_BUILD_PLATFORM=linux/arm64 make build-env` **and** the amd64 family from a
+Practically: `MICA_ARCH=arm64 make podman` on an amd64 host needs
+`MICA_BUILD_PLATFORM=linux/arm64 make build-env` **and** the amd64 family from a
 plain `make build-env`. `build.sh` names the missing one and the command that
 makes it.
 

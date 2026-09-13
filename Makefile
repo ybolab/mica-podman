@@ -14,7 +14,7 @@ $(error build-env/ is empty: the build substrate is fetched at its pin from ybol
 endif
 endif
 
-MOS_ARCH ?= arm64
+MICA_ARCH ?= arm64
 
 .PHONY: help deps deps-check deps-bump build-env podman podman-pins podman-pins-test deb-preflight-test deb pool publish package-gate preflight lint check
 
@@ -22,10 +22,10 @@ help:
 	@echo "  deps                fetch build-env/ at its pin (deps/sources/); deps-check reads without downloading"
 	@echo "  deps-bump           rewrite the pin from the newest build-* release (DEP_TAG=build-<commit12> picks one)"
 	@echo "  build-env           the builder images, from the pins in build-env/images.env"
-	@echo "  podman              build the seven engine binaries into out-\$$MOS_ARCH (MOS_ARCH=amd64|arm64)"
+	@echo "  podman              build the seven engine binaries into out-\$$MICA_ARCH (MICA_ARCH=amd64|arm64)"
 	@echo "  podman-pins         are the upstream tags in versions.env current? (network)"
 	@echo "  podman-pins-test    the check on that check, against recorded upstream responses (offline)"
-	@echo "  deb                 pack out-\$$MOS_ARCH as mica-podman into _out/debs/\$$MOS_ARCH/pool"
+	@echo "  deb                 pack out-\$$MICA_ARCH as mica-podman into _out/debs/\$$MICA_ARCH/pool"
 	@echo "  pool                both architectures, indexed (Packages, SHA256SUMS, manifest.txt)"
 	@echo "  package-gate        the package gate over this repository's pool"
 	@echo "  publish             the pool as the GitHub Release build-<commit12> of this commit"
@@ -62,7 +62,7 @@ preflight:
 	bash build-env/deb/preflight.sh
 
 deb: preflight
-	bash build-env/deb/build.sh --producer podman --arch $(MOS_ARCH)
+	bash build-env/deb/build.sh --producer podman --arch $(MICA_ARCH)
 
 pool: preflight
 	bash build-env/deb/build.sh --producer podman --arch amd64

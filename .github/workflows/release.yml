@@ -51,12 +51,12 @@ jobs:
         run: |
           set -euo pipefail
           make build-env
-          MOS_BUILD_PLATFORM=linux/arm64 make build-env
+          MICA_BUILD_PLATFORM=linux/arm64 make build-env
       - name: The engine, both architectures
         run: |
           set -euo pipefail
-          MOS_ARCH=amd64 make podman
-          MOS_ARCH=arm64 make podman
+          MICA_ARCH=amd64 make podman
+          MICA_ARCH=arm64 make podman
       - name: Pack and gate
         run: |
           set -euo pipefail

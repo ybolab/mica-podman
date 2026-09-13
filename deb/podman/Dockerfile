@@ -19,16 +19,16 @@
 # No default for the base, for the reason build-env/deb/Dockerfile gives: a
 # driver that failed to pass the argument would otherwise build from a floating
 # tag.
-ARG MOS_BUILD_DEB
+ARG MICA_BUILD_DEB
 
-FROM ${MOS_BUILD_DEB} AS pack
+FROM ${MICA_BUILD_DEB} AS pack
 
 # THE RUNTIME LIBRARIES THE PAYLOAD LINKS AGAINST, present so dpkg-shlibdeps can
 # resolve them. This is not the package's dependency list being written down: it
 # is the opposite. dpkg-shlibdeps answers "what does this ELF need" by looking at
 # the libraries INSTALLED NEXT TO IT, in this container -- build-env/deb/README.md
 # says so and it is why pack.sh refuses an architecture mismatch -- and
-# mos-build-deb carries dpkg-dev and no runtime. Without these, packing dies with
+# mica-build-deb carries dpkg-dev and no runtime. Without these, packing dies with
 # `cannot find library libjson-c.so.5 needed by .../usr/bin/crun` and the package
 # is never produced. The micad producers never meet this because their Rust
 # binaries need only libc, which every base carries.
@@ -74,12 +74,12 @@ COPY --from=bin podman quadlet crun conmon netavark aardvark-dns catatonit /in/b
 # The pins those binaries were built from, staged beside them by prepare.sh.
 COPY --from=bin versions.env /in/versions.env
 
-ARG MOS_DEB_VERSION
-ARG MOS_DEB_ARCH
+ARG MICA_DEB_VERSION
+ARG MICA_DEB_ARCH
 ARG SOURCE_DATE_EPOCH
 # Provenance, written into the control file by pack.sh; see build-env/deb/README.md.
-ARG MOS_DEB_SOURCE_REPO
-ARG MOS_DEB_SOURCE_COMMIT
+ARG MICA_DEB_SOURCE_REPO
+ARG MICA_DEB_SOURCE_COMMIT
 
 # THE PAYLOAD IS rootfs/scripts/podman-install.sh's RESULT, path for path and
 # mode for mode, plus the overlay's container configuration and the copyright.
@@ -182,8 +182,8 @@ RUN set -eu; \
 
 RUN set -eu; \
     pack.sh --root /stage --control /in/control/mica-podman.control \
-            --version "${MOS_DEB_VERSION}" \
-            --arch "${MOS_DEB_ARCH}" --out /out
+            --version "${MICA_DEB_VERSION}" \
+            --arch "${MICA_DEB_ARCH}" --out /out
 
 # ONE ARCHIVE, AND IT IS mica-podman's. The other half of the independence claim:
 # PACKAGES declares one package, so a producer that emitted a second archive
@@ -192,7 +192,7 @@ RUN set -eu; \
 # indexed by repo.sh as if some producer meant it.
 RUN set -eu; \
     got="$(find /out -mindepth 1 -maxdepth 1 -printf '%f\n' | LC_ALL=C sort | tr '\n' ' ')"; \
-    want="mica-podman_${MOS_DEB_VERSION}_${MOS_DEB_ARCH}.deb "; \
+    want="mica-podman_${MICA_DEB_VERSION}_${MICA_DEB_ARCH}.deb "; \
     [ "${got}" = "${want}" ] || { echo "error: this producer emits mica-podman and nothing else, and /out holds '${got}' rather than '${want}'" >&2; exit 1; }; \
     echo "podman-deb: /out holds ${want}and no other archive"
 

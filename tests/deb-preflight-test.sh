@@ -43,7 +43,7 @@ fi
     exit 1
 }
 
-# A FIXTURE repository root. MOS_DEB_REPO_ROOT is the seam the driver itself
+# A FIXTURE repository root. MICA_DEB_REPO_ROOT is the seam the driver itself
 # sets, so the real prepare.sh runs unmodified against a tree this test owns.
 FIX="${TMP}/fixture"
 FIXP="${FIX}"
@@ -102,8 +102,8 @@ fi
 # packaged the previous engine silently before the stamp existed.
 mkdir -p "${TMP}/stage-d"
 D_RC=0
-D_OUT="$(MOS_DEB_REPO_ROOT="${FIX}" MOS_DEB_ARCH="${FIX_ARCH}" MOS_DEB_PRODUCER=podman \
-    MOS_DEB_STAGE="${TMP}/stage-d" bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
+D_OUT="$(MICA_DEB_REPO_ROOT="${FIX}" MICA_DEB_ARCH="${FIX_ARCH}" MICA_DEB_PRODUCER=podman \
+    MICA_DEB_STAGE="${TMP}/stage-d" bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
 if [ "${D_RC}" -ne 0 ] &&
     says "${D_OUT}" "was built from a different versions.env" &&
     ! says "${D_OUT}" "TRIPWIRE"; then
@@ -119,8 +119,8 @@ sed -i 's/^CRUN_VERSION=.*/CRUN_VERSION=1.29.1/' "${FIXP}/versions.env"
 rm -rf "${TMP}/stage-d"
 mkdir -p "${TMP}/stage-d"
 D_RC=0
-D_OUT="$(MOS_DEB_REPO_ROOT="${FIX}" MOS_DEB_ARCH="${FIX_ARCH}" MOS_DEB_PRODUCER=podman \
-    MOS_DEB_STAGE="${TMP}/stage-d" bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
+D_OUT="$(MICA_DEB_REPO_ROOT="${FIX}" MICA_DEB_ARCH="${FIX_ARCH}" MICA_DEB_PRODUCER=podman \
+    MICA_DEB_STAGE="${TMP}/stage-d" bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
 staged="$(find "${TMP}/stage-d" -type f | wc -l)"
 # Seven binaries and the versions.env they were built from, which rides in
 # the payload as /usr/share/mica-podman/versions.env.
@@ -143,15 +143,15 @@ else
 fi
 bash "${FIXP}/versions-stamp.sh" --stamp "${OUTDIR}"
 
-# PRE-FLIGHT MODE, and the thing it must not do. No MOS_DEB_STAGE is passed,
+# PRE-FLIGHT MODE, and the thing it must not do. No MICA_DEB_STAGE is passed,
 # because the driver has not made one: no build has started.
 D_EX=""
 D_MI=""
 D_WA=""
 run_podman_preflight() {
     D_RC=0
-    D_OUT="$(MOS_DEB_PREFLIGHT=1 MOS_DEB_REPO_ROOT="${FIX}" MOS_DEB_ARCH="${FIX_ARCH}" \
-        MOS_DEB_PRODUCER=podman bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
+    D_OUT="$(MICA_DEB_PREFLIGHT=1 MICA_DEB_REPO_ROOT="${FIX}" MICA_DEB_ARCH="${FIX_ARCH}" \
+        MICA_DEB_PRODUCER=podman bash "${PODMAN_PREPARE}" 2>&1)" || D_RC=$?
     D_EX="$(printf '%s\n' "${D_OUT}" | sed -n 's/^preflight-examined: //p')"
     D_MI="$(printf '%s\n' "${D_OUT}" | sed -n 's/^preflight-missing: //p')"
     D_WA="$(printf '%s\n' "${D_OUT}" | sed -n 's/^preflight-warned: //p')"

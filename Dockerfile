@@ -38,7 +38,7 @@
 # Go concurrently, and the cache mounts below give the cheap re-provisioning a
 # merge would be reaching for.
 
-# The four shared builder images do not undo that. mos-build-{base,c,go,rust}
+# The four shared builder images do not undo that. mica-build-{base,c,go,rust}
 # is where the language toolchain comes from; each stage still keeps its own
 # apt list holding exactly the -dev packages its own components need. The
 # shared images carry compilers and no component's headers, and that boundary
@@ -48,38 +48,38 @@
 # build-env/from.sh, which build.sh calls. Bare tags --
 # debian:trixie-slim, golang:1.25-trixie, rust:1.90-trixie -- are repointed on
 # upstream's own schedule, which leaves "which compiler built the engine on
-# this device" answerable only from a build log. mos-build-go is Go 1.26.7 and
-# mos-build-rust is Rust 1.98.0, both pinned by sha256 in images.env;
+# this device" answerable only from a build log. mica-build-go is Go 1.26.7 and
+# mica-build-rust is Rust 1.98.0, both pinned by sha256 in images.env;
 # README.md records what was checked under them beyond "it built".
 
 # No defaults here, deliberately, and this is the one place in this file that
 # differs from ELF_ARCH's reasoning below. Without a value docker refuses with
-# "base name (${MOS_BUILD_BASE}) should not be blank" before any stage runs,
+# "base name (${MICA_BUILD_BASE}) should not be blank" before any stage runs,
 # which is a loud failure; a default would be exactly the unpinned float this
 # pinning removes, and would build green against an image nobody chose.
 # ELF_ARCH is defaulted so a bare `docker buildx build` still checks
 # something. Build this through `make podman`.
-ARG MOS_BUILD_BASE
-ARG MOS_BUILD_C
-ARG MOS_BUILD_GO
-ARG MOS_BUILD_RUST
+ARG MICA_BUILD_BASE
+ARG MICA_BUILD_C
+ARG MICA_BUILD_GO
+ARG MICA_BUILD_RUST
 
 # Five arguments and four images, because one of the four is wanted at two
 # architectures in the same build. Every stage below compiles for the TARGET
-# and takes its base from MOS_BUILD_BASE, MOS_BUILD_C, MOS_BUILD_GO or
-# MOS_BUILD_RUST; the src stage alone runs at the BUILD platform, because a
+# and takes its base from MICA_BUILD_BASE, MICA_BUILD_C, MICA_BUILD_GO or
+# MICA_BUILD_RUST; the src stage alone runs at the BUILD platform, because a
 # `git clone` of six upstreams has no reason to run under emulation. Its base
-# is therefore mos-build-base at the HOST's architecture, and that is a
+# is therefore mica-build-base at the HOST's architecture, and that is a
 # different image with a different name -- build-env/from.sh resolves a
 # LOCAL_ key to a tag that CARRIES its architecture, so
-# localhost/mos-build-base:amd64 and :arm64 coexist and neither is "the" base.
+# localhost/mica-build-base:amd64 and :arm64 coexist and neither is "the" base.
 #
 # It is a second ARGUMENT and not a second --platform because of what the
 # single-architecture tag does when it is wrong, which is not to refuse.
 # Measured on this host, both driver paths, a linux/arm64 build of this shape
 # with the arm64 base resolved into the src stage:
 #
-#   #4 resolve localhost/mos-build-base:arm64@sha256:b1f5a46d... 0.0s done
+#   #4 resolve localhost/mica-build-base:arm64@sha256:b1f5a46d... 0.0s done
 #   #5 0.444 exec /bin/sh: exec format error
 #
 # `--platform=$BUILDPLATFORM` selects a manifest out of an index, and a
@@ -90,16 +90,16 @@ ARG MOS_BUILD_RUST
 # the OCI layout the docker-container driver is handed instead: a layout named
 # after a tag holds that tag's one architecture, and buildx serves it rather
 # than refusing the mismatch.
-ARG MOS_BUILD_BASE_NATIVE
+ARG MICA_BUILD_BASE_NATIVE
 
 # Sources: fetched once, hashed, shared by every builder below.
 
 # No apt-get here. This stage needs git and a CA bundle, two of the five
-# packages mos-build-base exists to carry and asserts from inside itself
+# packages mica-build-base exists to carry and asserts from inside itself
 # (build-env/base/Dockerfile). Re-installing them would make that assertion
 # decorative, and the first slimmed base would be found by a failed clone in a
 # component build instead of by the image that claims the floor.
-FROM --platform=$BUILDPLATFORM ${MOS_BUILD_BASE_NATIVE} AS src
+FROM --platform=$BUILDPLATFORM ${MICA_BUILD_BASE_NATIVE} AS src
 # versions.lock, not versions.env: build.sh derives it by stripping comments
 # and blank lines. The two carry identical values, and the lock is what this
 # stage's cache key is computed over. Measured: adding a paragraph of prose to
@@ -154,11 +154,11 @@ RUN --mount=type=cache,target=/root/.cache/git \
     fetch catatonit    https://github.com/openSUSE/catatonit.git      "${CATATONIT_VERSION}" "${CATATONIT_SHA256}"
 
 # C components, running as aarch64 under the builder's emulation.
-FROM ${MOS_BUILD_C} AS c-build
+FROM ${MICA_BUILD_C} AS c-build
 # The language toolchain came with the image; the components' headers did not,
-# and that split is why mos-build-c is shared and this apt list still exists.
+# and that split is why mica-build-c is shared and this apt list still exists.
 # build-essential, make, cmake, pkgconf, autoconf, automake, libtool, python3,
-# ccache and file are facts about compiling C, so they live in mos-build-c,
+# ccache and file are facts about compiling C, so they live in mica-build-c,
 # which asserts their versions from inside itself. The six -dev packages below
 # are facts about crun, conmon and catatonit, and hoisting them into the
 # shared image would put them in the cache key of every other component that
@@ -175,7 +175,7 @@ RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-c,sharing=locked \
         libjson-c-dev libyajl-dev \
         libglib2.0-dev \
         libsystemd-dev
-# CCACHE_DIR and the /usr/lib/ccache PATH entry are set by mos-build-c, not
+# CCACHE_DIR and the /usr/lib/ccache PATH entry are set by mica-build-c, not
 # here; the mounts below are what make them worth setting. ccache in front of
 # the real compilers gives the C components the compiled-object cache the Go
 # stage has had since it was written (/root/.cache/go-build and /go/pkg/mod).
@@ -250,14 +250,14 @@ RUN --mount=type=cache,target=/ccache,id=ccache-c \
 
 # Rust: netavark and aardvark-dns.
 
-# mos-build-rust is Rust 1.98.0, from the tarball images.env pins by sha256.
+# mica-build-rust is Rust 1.98.0, from the tarball images.env pins by sha256.
 # This stage does not run netavark's or aardvark-dns's test suites, so "it
 # built" is the whole claim -- README.md records what was checked
 # beyond that. protobuf-compiler and pkgconf stay here: netavark's build
 # script runs protoc for its plugin API, which is a fact about netavark.
-# ca-certificates is not in this list because mos-build-base carries and
+# ca-certificates is not in this list because mica-build-base carries and
 # asserts it.
-FROM ${MOS_BUILD_RUST} AS rust-build
+FROM ${MICA_BUILD_RUST} AS rust-build
 RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-rust,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,id=apt-lists-rust,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
@@ -289,15 +289,15 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,id=cargo-registry \
 
 # Go: podman and its Quadlet generator.
 
-# mos-build-go is Go 1.26.7, from the tarball images.env pins by sha256.
+# mica-build-go is Go 1.26.7, from the tarball images.env pins by sha256.
 # build-essential is still installed here, and that is not an oversight:
-# mos-build-go deliberately carries no C compiler. podman needs one because
+# mica-build-go deliberately carries no C compiler. podman needs one because
 # CGO_ENABLED is mandatory for it, but a cgo consumer needs its own -dev list
 # anyway -- the four below -- so putting gcc in the shared Go image would give
 # every pure-Go consumer a C toolchain in its cache key and still not spare
 # this stage its apt line. git, ca-certificates and binutils are not in this
-# list: mos-build-base carries all three and asserts them.
-FROM ${MOS_BUILD_GO} AS go-build
+# list: mica-build-base carries all three and asserts them.
+FROM ${MICA_BUILD_GO} AS go-build
 RUN --mount=type=cache,target=/var/cache/apt,id=apt-cache-go,sharing=locked \
     --mount=type=cache,target=/var/lib/apt/lists,id=apt-lists-go,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean && \
@@ -348,11 +348,11 @@ RUN --mount=type=cache,target=/root/.cache/go-build \
 
 # Collect, and prove every artifact is what it claims to be.
 
-# mos-build-base again, and this stage is why its floor names `file` and
+# mica-build-base again, and this stage is why its floor names `file` and
 # `binutils` rather than leaving them to whoever needs them: every assertion
 # below is `file -b` reading an ELF header and `objdump -p` reading a NEEDED
 # list. No apt-get, for the reason the src stage gives.
-FROM ${MOS_BUILD_BASE} AS verify
+FROM ${MICA_BUILD_BASE} AS verify
 # The architecture this build is FOR, so the assertion below cannot pass by
 # naming the one it was first written against. Defaulted rather than required
 # so a bare `docker buildx build` on this Dockerfile still checks something --

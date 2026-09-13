@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The podman producer's PREPARE hook: put the seven container-engine binaries in
-# MOS_DEB_STAGE for build-env/deb/build.sh to hand the packaging build as its
+# MICA_DEB_STAGE for build-env/deb/build.sh to hand the packaging build as its
 # `bin` context.
 #
 # WHY A HOOK AND NOT A KEY IN producer.env. The binaries are compiled by
@@ -20,7 +20,7 @@
 # superseded versions.env cannot be mistaken for a current one either, which is
 # the half of that sentence the naming never covered.
 #
-# PRE-FLIGHT MODE. Run with MOS_DEB_PREFLIGHT=1 by build-env/deb/preflight.sh
+# PRE-FLIGHT MODE. Run with MICA_DEB_PREFLIGHT=1 by build-env/deb/preflight.sh
 # and declared with PREFLIGHT="1" in this producer's producer.env, this hook
 # reports whether out-<arch> is there, complete and stamped -- and BUILDS
 # NOTHING. That opt-in is what makes it safe: the pre-flight runs before any
@@ -30,25 +30,25 @@
 # which is why this hook is the second to learn the mode.
 set -euo pipefail
 
-PREFLIGHT="${MOS_DEB_PREFLIGHT:-0}"
+PREFLIGHT="${MICA_DEB_PREFLIGHT:-0}"
 
-# MOS_DEB_STAGE is required to STAGE, and there is nothing to stage in
+# MICA_DEB_STAGE is required to STAGE, and there is nothing to stage in
 # pre-flight mode: the driver has not created a stage, because no build has
 # started. Every other variable is required either way.
-for v in MOS_DEB_REPO_ROOT MOS_DEB_ARCH MOS_DEB_PRODUCER; do
+for v in MICA_DEB_REPO_ROOT MICA_DEB_ARCH MICA_DEB_PRODUCER; do
     [ -n "${!v:-}" ] || {
         echo "error: ${v} is not set. This script is deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
         exit 1
     }
 done
-[ "${PREFLIGHT}" != 0 ] || [ -n "${MOS_DEB_STAGE:-}" ] || {
-    echo "error: MOS_DEB_STAGE is not set. This script is deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
+[ "${PREFLIGHT}" != 0 ] || [ -n "${MICA_DEB_STAGE:-}" ] || {
+    echo "error: MICA_DEB_STAGE is not set. This script is deb/podman/producer.env's PREPARE hook and is run by build-env/deb/build.sh, which sets it; it is not a standalone command" >&2
     exit 1
 }
 
-REPO_ROOT="${MOS_DEB_REPO_ROOT}"
-ARCH="${MOS_DEB_ARCH}"
-STAGE="${MOS_DEB_STAGE:-}"
+REPO_ROOT="${MICA_DEB_REPO_ROOT}"
+ARCH="${MICA_DEB_ARCH}"
+STAGE="${MICA_DEB_STAGE:-}"
 BUILD_SH="${REPO_ROOT}/build.sh"
 VERSIONS_STAMP_SH="${REPO_ROOT}/versions-stamp.sh"
 OUT="${REPO_ROOT}/out-${ARCH}"
@@ -66,7 +66,7 @@ case "${ARCH}" in
 amd64) ELF_ARCH=x86-64 ;;
 arm64) ELF_ARCH=aarch64 ;;
 *)
-    echo "error: MOS_DEB_ARCH is '${ARCH}'. build.sh builds amd64 and arm64 and no other, and this producer's ARCHES says the same" >&2
+    echo "error: MICA_DEB_ARCH is '${ARCH}'. build.sh builds amd64 and arm64 and no other, and this producer's ARCHES says the same" >&2
     exit 1
     ;;
 esac
@@ -123,7 +123,7 @@ if [ "${PREFLIGHT}" != 0 ]; then
 This producer builds them itself, so the run will not stop -- it will spend
 roughly three quarters of an hour compiling six upstream clones across four
 language toolchains, under emulation for arm64, from inside a packaging hook.
-Run 'MOS_ARCH=${ARCH} make podman' first to pay that cost where it can be seen.")
+Run 'MICA_ARCH=${ARCH} make podman' first to pay that cost where it can be seen.")
     else
         stamp_out=""
         stamp_rc=0
@@ -151,7 +151,7 @@ fi
 
 if [ -n "${missing}" ]; then
     echo "prepare: ${OUT} is missing${missing}; building the engine for ${ARCH}"
-    MOS_ARCH="${ARCH}" bash "${BUILD_SH}"
+    MICA_ARCH="${ARCH}" bash "${BUILD_SH}"
     for b in "${BINARIES[@]}"; do
         [ -f "${OUT}/${b}" ] || {
             echo "error: build.sh reported success and ${OUT}/${b} does not exist" >&2
@@ -185,7 +185,7 @@ for b in "${BINARIES[@]}"; do
     case "${got}" in
     *"ELF 64-bit"*"${ELF_ARCH}"*) ;;
     *)
-        echo "error: ${OUT}/${b} is not an ${ELF_ARCH} ELF: ${got}. That directory holds the output of \`MOS_ARCH=${ARCH} make podman\`; delete it and build again" >&2
+        echo "error: ${OUT}/${b} is not an ${ELF_ARCH} ELF: ${got}. That directory holds the output of \`MICA_ARCH=${ARCH} make podman\`; delete it and build again" >&2
         exit 1
         ;;
     esac
@@ -199,7 +199,7 @@ done
 # pre-flight branch: it wrote /podman, /quadlet, /crun, /conmon, /netavark,
 # /aardvark-dns and /catatonit, and reported success.
 [ -n "${STAGE}" ] || {
-    echo "error: MOS_DEB_STAGE is empty at the point of staging. The seven destinations would each be an absolute path at the filesystem root" >&2
+    echo "error: MICA_DEB_STAGE is empty at the point of staging. The seven destinations would each be an absolute path at the filesystem root" >&2
     exit 1
 }
 for b in "${BINARIES[@]}"; do

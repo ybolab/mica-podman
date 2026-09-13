@@ -95,12 +95,12 @@ case "${MODE}" in
     # state this stamp exists to make impossible. Tolerating it would mean the
     # guard is skipped precisely on the directories nothing has ever checked.
     [ -f "${stamp}" ] || {
-        echo "error: ${out} carries no ${STAMP_NAME}, so nothing there says which versions.env it was built from. That is either a directory built before the stamp existed or one assembled by hand; either way its binaries cannot be matched to a source pin. Rebuild it: MOS_ARCH=$(basename "${out}" | sed 's/^out-//') make podman" >&2
+        echo "error: ${out} carries no ${STAMP_NAME}, so nothing there says which versions.env it was built from. That is either a directory built before the stamp existed or one assembled by hand; either way its binaries cannot be matched to a source pin. Rebuild it: MICA_ARCH=$(basename "${out}" | sed 's/^out-//') make podman" >&2
         exit 1
     }
     got="$(sed -n "s/^${STAMP_KEY}=//p" "${stamp}")"
     [ -n "${got}" ] || {
-        echo "error: ${stamp} exists and defines no ${STAMP_KEY}. The file is written by this script and by nothing else, so it has been truncated or edited by hand; rebuild: MOS_ARCH=$(basename "${out}" | sed 's/^out-//') make podman" >&2
+        echo "error: ${stamp} exists and defines no ${STAMP_KEY}. The file is written by this script and by nothing else, so it has been truncated or edited by hand; rebuild: MICA_ARCH=$(basename "${out}" | sed 's/^out-//') make podman" >&2
         exit 1
     }
     [ "${got}" = "${want}" ] || {
@@ -109,7 +109,7 @@ case "${MODE}" in
   current:  ${want}
 Those binaries are the versions.env of some earlier build, and every check that
 only looks at the files would pass over them: seven binaries, present,
-executable and the right architecture. Rebuild them -- MOS_ARCH=$(basename "${out}" | sed 's/^out-//') make podman -- or put versions.env back to what they were compiled from." >&2
+executable and the right architecture. Rebuild them -- MICA_ARCH=$(basename "${out}" | sed 's/^out-//') make podman -- or put versions.env back to what they were compiled from." >&2
         exit 1
     }
     ;;

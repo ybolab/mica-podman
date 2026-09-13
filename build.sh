@@ -24,25 +24,25 @@ FROM_SH="${REPO_ROOT}/build-env/from.sh"
     exit 1
 }
 
-# MOS_ARCH selects the target. The output directory follows it, so an arm64 and
+# MICA_ARCH selects the target. The output directory follows it, so an arm64 and
 # an amd64 set can coexist: one shared out/ would mean every board switch is a
 # full recompile of four language toolchains, and -- worse -- a stale out/ from
 # the other architecture looks exactly like a fresh one to anything that only
 # checks the files are present.
-MOS_ARCH="${MOS_ARCH:-arm64}"
-case "${MOS_ARCH}" in
+MICA_ARCH="${MICA_ARCH:-arm64}"
+case "${MICA_ARCH}" in
 arm64) ELF_ARCH=aarch64 ;;
 amd64) ELF_ARCH=x86-64 ;;
-*) echo "error: MOS_ARCH is '${MOS_ARCH}'; it must be arm64 or amd64" >&2; exit 1 ;;
+*) echo "error: MICA_ARCH is '${MICA_ARCH}'; it must be arm64 or amd64" >&2; exit 1 ;;
 esac
-OUT="${HERE}/out-${MOS_ARCH}"
+OUT="${HERE}/out-${MICA_ARCH}"
 
 # The src stage runs at the BUILD platform, not the target's, so this build
-# needs mos-build-base at the host's architecture as well -- a second image
+# needs mica-build-base at the host's architecture as well -- a second image
 # with a second name, since a LOCAL_ tag carries its architecture. The mapping
-# is build-env/build.sh's, copied rather than inferred from MOS_ARCH: the
+# is build-env/build.sh's, copied rather than inferred from MICA_ARCH: the
 # host is what it is regardless of what is being built for, and reading it off
-# MOS_ARCH would make every cross build resolve the src base to the target.
+# MICA_ARCH would make every cross build resolve the src base to the target.
 #
 # `uname -m` and not `docker buildx inspect`: on this host inspect reports the
 # mos-arm64 builder as `linux/amd64, linux/386` while a throwaway build on it
@@ -54,7 +54,7 @@ OUT="${HERE}/out-${MOS_ARCH}"
 case "$(uname -m)" in
 x86_64) NATIVE_ARCH=amd64 ;;
 aarch64 | arm64) NATIVE_ARCH=arm64 ;;
-*) echo "error: $(uname -m) is not an architecture build.sh maps to a mos-build-* tag, so it cannot resolve the src stage's base for the build platform. build-env/build.sh maps the same two and no more" >&2; exit 1 ;;
+*) echo "error: $(uname -m) is not an architecture build.sh maps to a mica-build-* tag, so it cannot resolve the src stage's base for the build platform. build-env/build.sh maps the same two and no more" >&2; exit 1 ;;
 esac
 
 for tool in docker; do
@@ -72,23 +72,23 @@ done
 # ambient selection: a leftover `mos-rauc-arm64` from an unrelated build is a
 # plausible current builder on any host that has ever run `make os-rauc`.
 
-# `default` reaches linux/${MOS_ARCH} exactly when the host has binfmt
+# `default` reaches linux/${MICA_ARCH} exactly when the host has binfmt
 # registered for it. When it does not, this no longer refuses: it selects the
-# `mos-${MOS_ARCH}` docker-container builder, whose buildkit image bundles the
+# `mos-${MICA_ARCH}` docker-container builder, whose buildkit image bundles the
 # emulators and needs no host registration -- same name and creation path as
 # tests/quadlet-doc-test.sh. That it genuinely executes the target
 # architecture is measured rather than inspected: `docker buildx ls` reports
 # mos-arm64 as linux/amd64 (+3), linux/386 on this host, and a throwaway
-# `FROM localhost/mos-build-base` + `RUN uname -m` built with
+# `FROM localhost/mica-build-base` + `RUN uname -m` built with
 # `--builder mos-arm64 --platform linux/arm64` printed aarch64.
 
-# What that driver cannot do is resolve a `localhost/mos-build-*` FROM: it has
+# What that driver cannot do is resolve a `localhost/mica-build-*` FROM: it has
 # its own content store and reads `localhost/` as a registry hostname, measured
-# as `Head "http://localhost/v2/mos-build-base/manifests/latest": dial tcp
+# as `Head "http://localhost/v2/mica-build-base/manifests/latest": dial tcp
 # [::1]:80: connect: connection refused` against a FROM line that is correct.
 # That is closed below rather than refused: build-env/from.sh --contexts=
 # hands the bases over as CONTENT, as OCI layouts named after the tags they
-# came from, and the Dockerfile keeps saying FROM ${MOS_BUILD_C}.
+# came from, and the Dockerfile keeps saying FROM ${MICA_BUILD_C}.
 if [ -n "${BUILDX_BUILDER:-}" ]; then
     echo "note: using the builder BUILDX_BUILDER names (${BUILDX_BUILDER})"
     BUILDER="${BUILDX_BUILDER}"
@@ -102,10 +102,10 @@ else
     # pipe buffer first. tests/shell-pipefail-lint.sh exists for this one
     # mistake and caught this line.
     default_platforms="$(docker buildx inspect default 2>/dev/null || true)"
-    if printf '%s\n' "${default_platforms}" | grep -c "linux/${MOS_ARCH}" >/dev/null; then
+    if printf '%s\n' "${default_platforms}" | grep -c "linux/${MICA_ARCH}" >/dev/null; then
         BUILDER=default
     else
-        BUILDER="mos-${MOS_ARCH}"
+        BUILDER="mos-${MICA_ARCH}"
         docker buildx inspect "${BUILDER}" >/dev/null 2>&1 ||
             docker buildx create --name "${BUILDER}" --driver docker-container >/dev/null
     fi
@@ -118,21 +118,21 @@ BUILDER_ARGS=(--builder "${BUILDER}")
 builder_inspect="$(docker buildx inspect "${BUILDER}" 2>/dev/null || true)"
 BUILDER_DRIVER="$(printf '%s\n' "${builder_inspect}" | sed -n 's/^Driver:[[:space:]]*//p')"
 [ -n "${BUILDER_DRIVER}" ] || {
-    echo "error: \`docker buildx inspect ${BUILDER}\` names no driver, so this build cannot tell whether that builder can resolve a localhost/mos-build-* tag or has to be handed the bases as OCI layouts. Either the builder does not exist or it is not running: \`docker buildx ls\` lists what does" >&2
+    echo "error: \`docker buildx inspect ${BUILDER}\` names no driver, so this build cannot tell whether that builder can resolve a localhost/mica-build-* tag or has to be handed the bases as OCI layouts. Either the builder does not exist or it is not running: \`docker buildx ls\` lists what does" >&2
     exit 1
 }
 
 # The refusal that is left, and it is about the one builder this script may not
 # replace. A caller who named BUILDX_BUILDER named it deliberately, so a
-# docker-driver builder on a host with no binfmt for ${MOS_ARCH} is a dead end
+# docker-driver builder on a host with no binfmt for ${MICA_ARCH} is a dead end
 # here rather than something to silently route around -- and it is refused now
 # instead of surfacing as `exec /bin/sh: exec format error` inside a compile
 # stage, which is how the first run of this build failed. Note what it does NOT
 # say any more: host binfmt is no longer what this build needs, only what THAT
 # builder needs.
 if [ "${BUILDER_DRIVER}" = docker ] &&
-    ! printf '%s\n' "${builder_inspect}" | grep -c "linux/${MOS_ARCH}" >/dev/null; then
-    echo "error: the buildx builder '${BUILDER}' uses the docker driver and does not offer linux/${MOS_ARCH} on this host, so every RUN in Dockerfile would fail with 'exec format error'. Either register the emulator on the HOST -- docker run --privileged --rm tonistiigi/binfmt --install ${MOS_ARCH} -- or unset BUILDX_BUILDER and let this script select the docker-container builder 'mos-${MOS_ARCH}', whose buildkit image bundles the emulators and needs no host registration" >&2
+    ! printf '%s\n' "${builder_inspect}" | grep -c "linux/${MICA_ARCH}" >/dev/null; then
+    echo "error: the buildx builder '${BUILDER}' uses the docker driver and does not offer linux/${MICA_ARCH} on this host, so every RUN in Dockerfile would fail with 'exec format error'. Either register the emulator on the HOST -- docker run --privileged --rm tonistiigi/binfmt --install ${MICA_ARCH} -- or unset BUILDX_BUILDER and let this script select the docker-container builder 'mos-${MICA_ARCH}', whose buildkit image bundles the emulators and needs no host registration" >&2
     exit 1
 fi
 
@@ -180,14 +180,14 @@ fi
 
 # --arch is passed, and it is the check this pinning added. A local tag carries
 # exactly one architecture, unlike the multi-architecture digests images.env
-# pins for upstream bases, so `MOS_ARCH=arm64 make podman` against an amd64
+# pins for upstream bases, so `MICA_ARCH=arm64 make podman` against an amd64
 # builder family has to be refused. Left to docker it surfaces as "no match for
 # platform in manifest" against a FROM line that is correct.
-mapfile -t FROM_ARGS < <("${FROM_SH}" --arch="${MOS_ARCH}" \
-    MOS_BUILD_BASE=LOCAL_MOS_BUILD_BASE \
-    MOS_BUILD_C=LOCAL_MOS_BUILD_C \
-    MOS_BUILD_GO=LOCAL_MOS_BUILD_GO \
-    MOS_BUILD_RUST=LOCAL_MOS_BUILD_RUST)
+mapfile -t FROM_ARGS < <("${FROM_SH}" --arch="${MICA_ARCH}" \
+    MICA_BUILD_BASE=LOCAL_MICA_BUILD_BASE \
+    MICA_BUILD_C=LOCAL_MICA_BUILD_C \
+    MICA_BUILD_GO=LOCAL_MICA_BUILD_GO \
+    MICA_BUILD_RUST=LOCAL_MICA_BUILD_RUST)
 # mapfile itself cannot fail, so its exit status says nothing about the process
 # inside the substitution; an empty array is what a refusal looks like from
 # here, and an empty array would build with no --build-arg at all.
@@ -198,8 +198,8 @@ mapfile -t FROM_ARGS < <("${FROM_SH}" --arch="${MOS_ARCH}" \
 
 # The fifth argument, and the only one resolved at a different architecture.
 # A separate call because --arch is per-invocation and this one is per-image:
-# LOCAL_MOS_BUILD_BASE at ${NATIVE_ARCH} is a different tag from the same key
-# at ${MOS_ARCH}, and it is the src stage's base. Folding it into the call
+# LOCAL_MICA_BUILD_BASE at ${NATIVE_ARCH} is a different tag from the same key
+# at ${MICA_ARCH}, and it is the src stage's base. Folding it into the call
 # above would have to drop --arch, and dropping --arch is what from.sh refuses
 # by name -- both families are in the store at once, so there is no "the"
 # local image to fall back to.
@@ -209,16 +209,16 @@ mapfile -t FROM_ARGS < <("${FROM_SH}" --arch="${MOS_ARCH}" \
 # and a build where they differ and a build where they do not then take the
 # same path through this script.
 mapfile -t NATIVE_ARGS < <("${FROM_SH}" --arch="${NATIVE_ARCH}" \
-    MOS_BUILD_BASE_NATIVE=LOCAL_MOS_BUILD_BASE)
+    MICA_BUILD_BASE_NATIVE=LOCAL_MICA_BUILD_BASE)
 [ "${#NATIVE_ARGS[@]}" -eq 2 ] || {
-    echo "error: build-env/from.sh did not yield localhost/mos-build-base:${NATIVE_ARCH} (see its message above); the src stage's FROM would have been blank. That family is built by \`MOS_BUILD_PLATFORM=linux/${NATIVE_ARCH} make build-env\` -- a cross build needs BOTH families on this host, the target's for the compiles and the host's for the source fetch" >&2
+    echo "error: build-env/from.sh did not yield localhost/mica-build-base:${NATIVE_ARCH} (see its message above); the src stage's FROM would have been blank. That family is built by \`MICA_BUILD_PLATFORM=linux/${NATIVE_ARCH} make build-env\` -- a cross build needs BOTH families on this host, the target's for the compiles and the host's for the source fetch" >&2
     exit 1
 }
 
 # The same four images a second time, as content, for a builder that cannot
 # read the local image store. Only for that builder: with the docker driver the
 # tags above resolve directly, and exporting them anyway would copy the whole
-# mos-build family -- 3.6 GB of it -- to disk on every native build to change
+# mica-build family -- 3.6 GB of it -- to disk on every native build to change
 # nothing.
 #
 # A temporary directory rather than a path in the tree, because the layouts are
@@ -228,26 +228,26 @@ CTX_ARGS=()
 if [ "${BUILDER_DRIVER}" != docker ]; then
     OCI_DIR="$(mktemp -d)"
     trap 'rm -rf "${OCI_DIR}"' EXIT
-    mapfile -t CTX_ARGS < <("${FROM_SH}" --arch="${MOS_ARCH}" --contexts="${OCI_DIR}" \
-        LOCAL_MOS_BUILD_BASE \
-        LOCAL_MOS_BUILD_C \
-        LOCAL_MOS_BUILD_GO \
-        LOCAL_MOS_BUILD_RUST)
+    mapfile -t CTX_ARGS < <("${FROM_SH}" --arch="${MICA_ARCH}" --contexts="${OCI_DIR}" \
+        LOCAL_MICA_BUILD_BASE \
+        LOCAL_MICA_BUILD_C \
+        LOCAL_MICA_BUILD_GO \
+        LOCAL_MICA_BUILD_RUST)
     [ "${#CTX_ARGS[@]}" -eq 8 ] || {
         echo "error: build-env/from.sh did not yield the four OCI layout contexts (see its message above); the '${BUILDER}' builder would have resolved the FROM lines as pulls from a registry called 'localhost'" >&2
         exit 1
     }
     # A fifth layout for the src stage's base, and ONLY when it is a fifth
-    # image. On a native build MOS_BUILD_BASE_NATIVE resolves to the tag the
+    # image. On a native build MICA_BUILD_BASE_NATIVE resolves to the tag the
     # loop above already exported, and a second --build-context under the same
     # name would be one name bound twice -- an export of 300 MB to say what has
     # already been said, and a precedence question nothing here should have to
     # answer.
-    if [ "${NATIVE_ARCH}" != "${MOS_ARCH}" ]; then
+    if [ "${NATIVE_ARCH}" != "${MICA_ARCH}" ]; then
         mapfile -t NATIVE_CTX < <("${FROM_SH}" --arch="${NATIVE_ARCH}" --contexts="${OCI_DIR}" \
-            LOCAL_MOS_BUILD_BASE)
+            LOCAL_MICA_BUILD_BASE)
         [ "${#NATIVE_CTX[@]}" -eq 2 ] || {
-            echo "error: build-env/from.sh did not yield the OCI layout for localhost/mos-build-base:${NATIVE_ARCH} (see its message above); the '${BUILDER}' builder would have resolved the src stage's FROM as a pull from a registry called 'localhost'" >&2
+            echo "error: build-env/from.sh did not yield the OCI layout for localhost/mica-build-base:${NATIVE_ARCH} (see its message above); the '${BUILDER}' builder would have resolved the src stage's FROM as a pull from a registry called 'localhost'" >&2
             exit 1
         }
         CTX_ARGS+=("${NATIVE_CTX[@]}")
@@ -258,7 +258,7 @@ rm -rf "${OUT}"
 mkdir -p "${OUT}"
 
 docker buildx build "${BUILDER_ARGS[@]}" \
-    --platform "linux/${MOS_ARCH}" \
+    --platform "linux/${MICA_ARCH}" \
     "${FROM_ARGS[@]}" \
     "${NATIVE_ARGS[@]}" \
     ${CTX_ARGS[@]+"${CTX_ARGS[@]}"} \
