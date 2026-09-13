@@ -46,3 +46,12 @@ Moving mica-podman onto the mica-build-env release
 - User direction 22:45 (via a0psyi7e): packages need not use OCI. The channel
   becomes the GitHub Release build-<commit12> (tools/release.sh,
   tests/release-test.sh 13/13); the OCI publisher is removed.
+- 950c740: tools/release.sh + publish job (contents: write). CI run 34788153831
+  success: GitHub Release build-950c7402cbbd at 950c7402cbbd46dcd71a36266a161afb8bb61c0c,
+  SHA256SUMS sha256 631af1a2...a3f526, amd64 deb 0ad24201...10e88, arm64 deb
+  18a173be...71da2; anonymous download, tag and sha256sum -c verified in CI and
+  again from outside CI.
+- d9f77eb: workflow actions checkout v7, upload-artifact v7, download-artifact v8.
+- build-env v0.0.1 republished (tag 3863d69d382a55c0fa4b9d7756d110ae4a0977f5,
+  SHA256SUMS de740ff5...); pin moved to it on user direction and the package
+  rebuilt and released from that commit.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-14 00:00 [progress]
+
+mica-build-env republished v0.0.1 at tag commit 3863d69d382a (new SHA256SUMS
+de740ff5..., new base, c, go and rust image digests; RULES now allow a GitHub
+Release transport). `build-env.env` pins the republished release; the old
+checksum no longer verifies. The engine is rebuilt on the new images and
+released as `build-<commit12>`.
+
 ## 2026-09-13 23:40 [progress]
 
 Packages may be delivered without OCI (user direction 22:45), and the GHCR
