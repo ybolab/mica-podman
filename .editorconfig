@@ -6,18 +6,12 @@ end_of_line = lf
 insert_final_newline = true
 trim_trailing_whitespace = true
 
-# rustfmt defaults: 4-space indent, 100 columns.
-[*.rs]
-indent_style = space
-indent_size = 4
-max_line_length = 100
-
-[*.{ts,tsx,js,json,yml,yaml,md,toml}]
+[*.{json,yml,yaml,md}]
 indent_style = space
 indent_size = 2
 
 [*.md]
 trim_trailing_whitespace = false
 
-[{Makefile,*.mk}]
+[Makefile]
 indent_style = tab

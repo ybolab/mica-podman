@@ -1,5 +1,29 @@
 # Changelog
 
+## 2026-09-13 22:50 [progress]
+
+Builds on the mica-build-env release v0.0.1 (`build-env.env`: version and
+SHA256SUMS sha256 c3380f58...) and its `IMAGE_MICA_BUILD_{BASE,C,GO,RUST}`
+digest pins, verified by `tools/build-env.sh`. The shared source pin
+(`tools/deps.sh`, `deps/`, `build-env/`) and producer framework
+(`deb/podman/producer.env`, `prepare.sh`) are removed: `tools/package.sh`,
+`deb/pack.sh` and `tests/package-gate.sh` pack and gate the archive on the
+release base image. CI builds each architecture on a native runner and keeps
+the archives as workflow artifacts; the publication channel is an open
+decision. Task `20260913-2211-build-env-release`.
+
+## 2026-09-13 21:00 [progress]
+
+Mica OS is the only name. The configuration uses `/mica/containers` (storage,
+image copy tmp, network definitions) and the Quadlet mount requires it; the
+buildx fallback builder is `mica-<arch>`. `mica-podman` is maintained by
+`Mica OS <hi@micaos.dev>`, and the copyright header names Mica OS
+(`tests/package-test.sh` checks both and that the retired name is gone). The
+historical release transport (`tools/transport-pool.sh`, its test and
+workflow) is removed: the package archives pushed by `release` are this
+repository's only publication. Comments across the tree are cut to the
+non-obvious constraints.
+
 ## 2026-09-13 20:00 [progress]
 
 The pool moves to the per-repository OCI package

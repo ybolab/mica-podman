@@ -1,85 +1,47 @@
 Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
-Upstream-Name: mica-podman
-Comment: THE FILES STANZAS BELOW NAME INSTALLED PATHS, not source paths. This
- package has no source tree of its own: it carries seven binaries compiled from
- six pinned upstream projects, and mos's own container configuration. A
- stanza therefore says "this file in the payload came from that project under
- that licence", which is the question a reader of an installed system has.
- .
- THE SEVEN BINARIES ARE NOT UNIFORMLY LICENSED and are not all Apache-2.0. The
- versions are the ones pkgs/podman/versions.env pins, and each licence below
- was read out of the source at that exact tag rather than taken from a summary:
- .
-   podman        v5.8.6    Apache-2.0            LICENSE
-   quadlet       v5.8.6    Apache-2.0            LICENSE (built from the podman tree)
-   crun          1.29.1    GPL-2.0-or-later      COPYING, and the headers of src/crun.c
-   conmon        v2.2.1    Apache-2.0            LICENSE
-   netavark      v2.1.0    Apache-2.0            LICENSE
-   aardvark-dns  v2.1.0    Apache-2.0            LICENSE
-   catatonit     v0.2.1    GPL-2.0-or-later      COPYING, and catatonit.c's SPDX line
- .
- STATIC LINKAGE IS NOT ENUMERATED HERE. podman and quadlet are Go, netavark and
- aardvark-dns are Rust, and each links its vendored dependency graph into the
- shipped binary. Those graphs carry their own permissive licences and are not
- listed file by file: the pinned tag in pkgs/podman/versions.env plus its
- recorded source hash is what identifies the exact tree those dependencies came
- from, and that pair is the reference this file offers instead of a list it
- could not keep current.
- .
- THE LICENCE TEXTS ARE CARRIED HERE rather than referenced. Pointing at
- Debian's shared common-licenses directory is an archive convention, and the mos
- image does not ship that directory -- the reference would dangle on the device.
+Upstream-Name: Mica OS
+Upstream-Contact: Mica OS <hi@micaos.dev>
+Comment: Files stanzas name installed paths. Each licence was read from the
+ source at the tag versions.env pins; vendored Go and Rust dependencies are
+ identified by that tag and its source hash. Licence texts are carried in full
+ because the image does not ship /usr/share/common-licenses.
 
 Files: *
-Copyright: The mos project
+Copyright: Mica OS
 License: Apache-2.0
-Comment: mos's own material in this package: the four /etc/containers
- configuration files and the Quadlet mount unit, taken from
- rootfs/overlay/. The text is the repository's own LICENSE file, copied
- rather than retyped.
+Comment: The /etc/containers configuration and the Quadlet mount unit.
 
 Files: usr/bin/podman
  usr/libexec/podman/quadlet
 Copyright: The containers/podman authors
 License: Apache-2.0
-Comment: Both binaries are built from ONE source tree, containers/podman at
- v5.8.6 -- `make bin/podman bin/quadlet` in pkgs/podman/Dockerfile -- so they
- carry one licence. quadlet is reached on the device through the
- /usr/lib/systemd/system-generators/podman-system-generator symlink.
+Comment: containers/podman v5.8.6.
 
 Files: usr/bin/crun
 Copyright: Giuseppe Scrivano and the crun authors
 License: GPL-2.0-or-later
-Comment: crun 1.29.1. The COPYING file at that tag is the GPL version 2 text,
- and src/crun.c -- the program this package ships -- grants "either version 2 of
- the License, or (at your option) any later version", which is GPL-2.0-or-later.
- .
- The library half of the same tree, src/libcrun/, is LGPL-2.1-or-later
- (src/libcrun/container.c, and COPYING.libcrun). It is linked into this binary
- rather than shipped separately, so the LGPL-2.1-or-later text is carried below
- as well; the combined work is distributed under the GPL-2.0-or-later terms
- above.
+Comment: crun 1.29.1. The linked src/libcrun is LGPL-2.1-or-later, carried
+ below; the combined binary is distributed under GPL-2.0-or-later.
 
 Files: usr/libexec/podman/conmon
 Copyright: The containers/conmon authors
 License: Apache-2.0
-Comment: conmon v2.2.1, LICENSE at that tag.
+Comment: conmon v2.2.1.
 
 Files: usr/libexec/podman/netavark
 Copyright: The containers/netavark authors
 License: Apache-2.0
-Comment: netavark v2.1.0, LICENSE at that tag.
+Comment: netavark v2.1.0.
 
 Files: usr/libexec/podman/aardvark-dns
 Copyright: The containers/aardvark-dns authors
 License: Apache-2.0
-Comment: aardvark-dns v2.1.0, LICENSE at that tag.
+Comment: aardvark-dns v2.1.0.
 
 Files: usr/libexec/podman/catatonit
 Copyright: SUSE LLC and the catatonit authors
 License: GPL-2.0-or-later
-Comment: catatonit v0.2.1. COPYING at that tag is the GPL version 2 text, and
- catatonit.c opens with `SPDX-License-Identifier: GPL-2.0-or-later`.
+Comment: catatonit v0.2.1.
 
 License: Apache-2.0
                                   Apache License

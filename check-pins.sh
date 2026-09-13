@@ -1,64 +1,11 @@
 #!/usr/bin/env bash
-# Ask each of versions.env's six upstreams for its newest release and fail when
-# a pin has fallen behind.
+# Fail when a versions.env pin has a newer upstream release. Reads, never writes.
 #
 #   bash check-pins.sh                    # live, needs network
 #   bash check-pins.sh --releases-dir DIR # against recorded JSON
 #
-# `versions.env` is the upgrade interface and it
-# says so itself: "Bump a tag, bump its hash, run the image chain, read the
-# verifier." This script is the other half of that sentence -- the thing that
-# tells a reader there is something to bump. It READS versions.env and never
-# writes it. It opens no pull request and bumps nothing. Moving a pin costs a
-# tag, a hash set to PENDING and a `make podman`, and the file is explicit that
-# recording a hash "is an act rather than a copy from an upstream page nobody
-# re-checked"; a robot that edited the pin would be exactly that copy. So the
-# deliverable is the alarm, not the fix.
-#
-# It lives here rather than in tools/ because it is not a general utility: it
-# knows this package's six upstreams and the shape of its version file, and it
-# reads the file sitting next to it, the same file build.sh reads.
-#
-# THREE THINGS MAKE THIS HARDER THAN A LOOP OVER SIX URLS.
-#
-# 1. There is no shared tag convention. Five upstreams tag `v2.1.0`; crun tags
-#    `1.29.1` with no `v`. Normalising both to a guess and comparing strings
-#    would silently accept a tag from the wrong namespace, so the convention is
-#    taken FROM THE PIN AS WRITTEN: the pin's leading non-digit run is the
-#    prefix, and only upstream tags carrying exactly that prefix followed by a
-#    dotted-numeric core are comparable. A `v1.30` published against crun's
-#    unprefixed pin is not silently compared -- it is counted as skipped and
-#    named in the output, and if EVERY release upstream gets skipped that way
-#    the run fails rather than reporting a component with nothing to compare.
-#
-# 2. podman is pinned to the 5.x LINE ON PURPOSE. Upstream maintains 5.x and
-#    6.x concurrently -- as this is written v5.8.6 and v6.1.0 are both current
-#    -- and versions.env says "podman is pinned to the 5.x line, NOT the newest
-#    tag". A check that reported "6.1.0 exists, you are behind" would be wrong,
-#    and would be wrong every week until somebody turned it off. So podman's
-#    row carries a `line` policy: the comparison is confined to the major
-#    version OF THE PIN. That derives the line from the file rather than
-#    hardcoding 5, so the day a human moves the pin to 6.x this script follows
-#    without an edit. A newer line is still REPORTED, as a note that cannot
-#    change the exit status: which line to be on is versions.env's decision.
-#
-# 3. catatonit is quiet by nature. Its newest release is v0.2.1, dated
-#    2024-12-14, and versions.env calls that "the cadence of a few-hundred-KB
-#    container init rather than evidence of abandonment". A check that read an
-#    old date as a failure would cry wolf forever. So age is never an input to
-#    the verdict: the only question asked is whether a NEWER comparable tag
-#    exists. UNCHANGED is printed with the release date so that a quiet
-#    upstream reads as measured rather than assumed, and tests/podman-pins-test.sh
-#    holds that case to a fixture rather than to an assumption.
-#
-# The fast CI lane has no network, so this runs in the weekly privileged lane
-# (.github/workflows/privileged.yml). `--releases-dir` is what makes the
-# comparison testable without one: it reads `<DIR>/<component>.json` in place of
-# the fetch, so every branch above is exercised against recorded upstream
-# responses. `--versions-env` does the same for the other input, so proving that
-# a backwards pin turns the run red never requires editing the real pin file.
-# Neither flag softens a verdict -- both only choose where the two inputs come
-# from, and both are visible in the command line.
+# The tag prefix is taken from the pin (crun has no `v`); podman is compared
+# within its pinned major; release age is never a verdict.
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -93,10 +40,6 @@ done
 [ -f "${VERSIONS_ENV}" ] || { echo "error: ${VERSIONS_ENV} not found" >&2; exit 2; }
 
 # component | versions.env variable | upstream repository | line policy
-#
-# The repositories are the ones the src stage clones (Dockerfile),
-# not a second list maintained by eye. `line` confines the comparison to the
-# pinned major; `newest` compares against everything comparable.
 COMPONENTS=(
     "podman|PODMAN_VERSION|containers/podman|line"
     "crun|CRUN_VERSION|containers/crun|newest"
@@ -113,20 +56,11 @@ if [ -n "${RELEASES_DIR}" ]; then
     [ -d "${RELEASES_DIR}" ] || { echo "error: --releases-dir ${RELEASES_DIR} is not a directory" >&2; exit 2; }
     echo "reading recorded upstream responses from ${RELEASES_DIR} (no network)"
 else
-    # -L because containers/podman answers 301: GitHub redirects a renamed
-    # repository and curl without -L returns the redirect body, which parses as
-    # JSON and contains no releases -- a component that would look empty rather
-    # than moved. -f so an HTTP error is an error here and not a parse failure
-    # three steps later; the unauthenticated API allows 60 requests an hour per
-    # address and answers 403 past that, which this must report as a failed
-    # check and never as a green one.
+    # -L: containers/podman answers 301. -f: a rate limit is a failed check.
     echo "asking six upstreams for their releases"
     for row in "${COMPONENTS[@]}"; do
         IFS='|' read -r name _var repo _policy <<< "${row}"
-        # Started non-empty on purpose: "${arr[@]}" on an empty array is an
-        # unbound-variable error under `set -u` in bash before 4.4.
         headers=(-H 'Accept: application/vnd.github+json' -H 'X-GitHub-Api-Version: 2022-11-28')
-        # A token only raises the rate limit; the release lists are public.
         [ -z "${GITHUB_TOKEN:-}" ] || headers+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
         curl -fsSL --max-time 60 \
             "${headers[@]}" \
@@ -147,9 +81,7 @@ import sys
 versions_env, releases_dir = sys.argv[1], sys.argv[2]
 rows = [r.split("|") for r in sys.argv[3:]]
 
-# versions.env is shell, but only in the sense that `NAME=value` is shell. It is
-# read with a regex rather than sourced: sourcing it would run whatever the file
-# contains, and this script's whole contract is that it only reads.
+# Parsed, not sourced.
 pins = {}
 with open(versions_env, encoding="utf-8") as fh:
     for line in fh:
@@ -187,7 +119,6 @@ for name, var, repo, policy in rows:
         errors.append(f"{name}: {var} is not set in {versions_env}")
         continue
 
-    # The convention comes from the pin as written: its leading non-digit run.
     prefix = re.match(r"^\D*", pin).group(0)
     pin_core = core(pin, prefix)
     if pin_core is None:
@@ -226,8 +157,6 @@ for name, var, repo, policy in rows:
         )
         continue
 
-    # The line policy, taken from the pin's own major so that moving the pin
-    # moves the line with it.
     in_line = comparable
     if policy == "line":
         in_line = {c: t for c, t in comparable.items() if c[0] == pin_core[0]}
@@ -265,12 +194,10 @@ for note in notes:
     print(f"NOTE       {note}")
 print()
 
-# A run that silently compared fewer than six components would report a green
-# about an unknown number of pins.
 if len(lines) + len(errors) != len(rows):
     errors.append(f"internal: {len(rows)} components declared but {len(lines) + len(errors)} accounted for")
 
-sys.stdout.flush()  # so the verdict below lands after the table in a CI log
+sys.stdout.flush()
 
 if errors:
     for e in errors:

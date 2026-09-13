@@ -1,22 +1,18 @@
 name: release
-# Every push to main that passes the gates publishes the pool as the GitHub
-# Release build-<commit12> of this commit; the assembly pins that release
-# through deps/packages/mica-podman.json. The seven binaries are compiled
-# here for both architectures (arm64 under emulation), which is the slow
-# part of this workflow and the reason it runs only on main.
+# Builds, packs and gates mica-podman for amd64 and arm64 on native runners and
+# keeps the archives as workflow artifacts. Publication is not wired yet.
 on:
   push:
     branches: [main]
   pull_request:
   schedule:
-    # Weekly: are the six upstream tags versions.env pins still the newest
-    # releases? The check reads public release lists, edits nothing and bumps
-    # nothing; its whole output is a red tick naming which component moved.
     - cron: '17 6 * * 1'
   workflow_dispatch:
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
+permissions:
+  contents: read
 jobs:
   pin-freshness:
     if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
@@ -24,46 +20,60 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch the build substrate at its pin
-        run: make deps
-        env:
-          GH_TOKEN: ${{ secrets.MICA_DEPS_TOKEN }}
-      - name: The check on the check, against recorded upstream responses
+      - name: Pin check against recorded upstream responses
         run: make podman-pins-test
       - name: Ask the six upstreams for their newest release
         env:
           GITHUB_TOKEN: ${{ github.token }}
         run: make podman-pins
-  package:
+  check:
     if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Fetch the build substrate at its pin
-        run: make deps
-        env:
-          GH_TOKEN: ${{ secrets.MICA_DEPS_TOKEN }}
       - name: Offline checks
         run: make check
-      - name: Emulation for the arm64 builder family
-        uses: docker/setup-qemu-action@v3
-      - name: Builder images, both architectures
+  package:
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      MICA_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: The pinned mica-build-env release
+        run: make build-env
+      - name: The engine
+        run: make podman
+      - name: Pack
+        run: make deb
+      - name: Gate, with a no-cache rebuild
+        run: bash tests/package-gate.sh --arch "$MICA_ARCH" --reproduce
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mica-podman-${{ matrix.arch }}
+          path: _out/debs/${{ matrix.arch }}/*.deb
+          if-no-files-found: error
+  gate:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mica-podman-*
+          path: _out/artifacts
+      - name: Gate over both architectures
         run: |
           set -euo pipefail
-          make build-env
-          MICA_BUILD_PLATFORM=linux/arm64 make build-env
-      - name: The engine, both architectures
-        run: |
-          set -euo pipefail
-          MICA_ARCH=amd64 make podman
-          MICA_ARCH=arm64 make podman
-      - name: Pack and gate
-        run: |
-          set -euo pipefail
-          make pool
-          make package-gate
-      - name: Publish the release of this commit
-        if: github.event_name == 'push'
-        run: make publish
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          for arch in amd64 arm64; do
+            mkdir -p "_out/debs/$arch"
+            cp "_out/artifacts/mica-podman-$arch/"*.deb "_out/debs/$arch/"
+          done
+          bash tests/package-gate.sh

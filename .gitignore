@@ -1,15 +1,3 @@
-out-arm64/
-out-amd64/
 versions.lock
 _out/
-
-# The build substrate, fetched at its pin by tools/deps.sh from the releases
-# of ybolab/mica-build-env (deps/sources/mica-build-env.json); never edited
-# in place, never committed here.
-/build-env/
-
-# Project-scoped scratch of the agent sandbox convention.
 .tmp/
-
-# Repository-local scratch the packaging driver bind-mounts into containers.
-tmp/

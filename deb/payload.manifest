@@ -1,20 +1,5 @@
-# THE DECLARED PAYLOAD OF mica-podman, and the producer-independence assertion.
-#
-# deb/podman/Dockerfile generates the same three columns out of
-# the staged tree and refuses any difference, so this file is the statement of
-# what this producer owns and the staged tree is the evidence. A path that
-# appears in one and not the other fails the build naming both sides. Comment
-# lines and blank lines are stripped before the comparison.
-#
-#   <mode> <d|f|l> <path>            and `-> <target>` for a symlink
-#
-# The file paths and modes are rootfs/scripts/podman-install.sh's, read out
-# of that script rather than restated from a plan; the /etc/containers files and
-# etc-containers-systemd.mount are the overlay's, at the paths
-# rootfs/scripts/overlay-install.sh installs them to. The directories are
-# listed because they are payload too: PLAN-036 gives mica-podman the
-# /etc/containers subtree outright, and the pool's ownership check does not flag
-# directory overlap, so nothing else would catch one going missing.
+# The payload of mica-podman: <mode> <d|f|l> <path> [-> <target>].
+# deb/Dockerfile refuses any difference from the staged tree.
 0644 f /etc/containers/containers.conf
 0644 f /etc/containers/policy.json
 0644 f /etc/containers/registries.conf
