@@ -38,19 +38,16 @@ own scripts.
    Replaces or enablement links, the payload against `payload.manifest`, and
    with `--reproduce` a no-cache rebuild byte for byte.
 5. CI: `make check`, then per-architecture native runners build, pack and
-   reproduce, then a gate over both arches; a push to main publishes those
-   gated artifacts with `tools/publish.sh` (packages: write), never cancelled
+   reproduce, then a gate over both arches; a push to main releases those
+   gated artifacts with `tools/release.sh` (contents: write), never cancelled
    halfway.
-6. Publish (RULES section 3): `tools/publish.sh` pushes
-   `ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>` from a clean
-   HEAD: one `application/vnd.mica.deb` layer titled
-   `mica-podman_<version>_<arch>.deb`, empty config, `artifactType
-   application/vnd.mica.pool`, annotations revision, created (commit time,
-   UTC), source, `mica.source-repo`, `mica.source-commit`, `mica.arch`. Every
-   archive's identity is checked before any registry access; an existing tag
-   must match bytes and identity; both pools are uploaded, then each manifest
-   (by tag and digest) and deb is read back with no credential.
-   `tests/publish-test.sh` drives it against local registries.
+6. Release: `tools/release.sh` publishes the gated archives of a clean HEAD
+   as the GitHub Release `build-<commit12>`, created with `--target <commit>`:
+   `mica-podman_<version with + as .>_<arch>.deb` for amd64 and arm64 and
+   `SHA256SUMS` over both. Archive identity is checked before any gh call; an
+   existing release must be published, target the commit, be tagged at it and
+   hold exactly these assets; then the tag and every asset are read back
+   anonymously. `tests/release-test.sh` drives it against a stub gh.
 7. Remove what no caller needs any more: `tools/deps.sh`, `deps/`,
    `build-env/`, `deb/podman/producer.env` and `prepare.sh`, the `make
    build-env` image build and the pool index.
@@ -61,9 +58,12 @@ binaries on the release base image; CI run on both native arches.
 
 ## Decisions
 
-- Publication channel (coordinator a0psyi7e, 2026-09-13, project contract and
-  the Core/Podman publication grant): the own-repository OCI pool of RULES
-  section 3. No GitHub Release channel.
+- Publication channel: first the own-repository OCI pool of RULES section 3
+  (coordinator a0psyi7e); d8394e8 uploaded pool.{amd64,arm64}.build-d8394e8b5688
+  and stopped because the GHCR package is private. The user's 22:45 direction
+  lifts the OCI requirement for packages, so the channel is the GitHub Release
+  of this public repository; the OCI publisher is removed (it stays in
+  d8394e8) and the uploaded tags are left untouched.
 - Package version (same): this repository keeps
   `<PODMAN_VERSION>+git<commit12>-1`; `versions.env` `PODMAN_VERSION` is the one
   version input. The unused `VERSION` file is removed.

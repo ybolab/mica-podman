@@ -1,7 +1,7 @@
 name: release
 # Builds, packs and gates mica-podman for amd64 and arm64 on native runners; a
-# push to main then publishes those gated archives as
-# ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12> (tools/publish.sh).
+# push to main then releases those gated archives as the GitHub Release
+# build-<commit12> of this repository (tools/release.sh).
 on:
   push:
     branches: [main]
@@ -84,8 +84,7 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: write
     concurrency:
       group: publish-mica-podman
       cancel-in-progress: false
@@ -104,8 +103,7 @@ jobs:
           done
           rm -rf _out/artifacts
           bash tests/package-gate.sh
-      - name: Publish the pools and read them back anonymously
-        run: bash tools/publish.sh
+      - name: Release the archives and download them back anonymously
+        run: bash tools/release.sh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          MICA_REGISTRY_USER: ${{ github.actor }}

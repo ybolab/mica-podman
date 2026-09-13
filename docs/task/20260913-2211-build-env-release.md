@@ -33,5 +33,16 @@ Moving mica-podman onto the mica-build-env release
   no-cache rebuild, 23/23 cross-architecture gate. Artifacts:
   mica-podman_5.8.6+gitb07b1f48b473-1_amd64.deb sha256 dc7bc7c2...18ccac,
   mica-podman_5.8.6+gitb07b1f48b473-1_arm64.deb sha256 d4afe52b...48cf70.
-- Waiting on two decisions (plan, "Decisions left open"): the publication
-  channel and the package version number.
+- Decisions resolved by coordinator a0psyi7e: OCI pool channel, version
+  `<PODMAN_VERSION>+git<commit12>-1`; VERSION removed (plan, "Decisions").
+- d8394e8: tools/publish.sh + publish job. tests/publish-test.sh 14/14 on local
+  registries; mutations (identity annotations dropped, credentialed read-back)
+  are caught.
+- CI run 34787482160 on d8394e8: check, package amd64/arm64, gate succeed;
+  publish uploaded pool.amd64.build-d8394e8b5688 (manifest sha256:a3af00bd...,
+  deb sha256:e91ddd66...) and pool.arm64.build-d8394e8b5688 (manifest
+  sha256:4757d0f5..., deb sha256:f92c5fde...), then stopped: anonymous token
+  endpoint HTTP 401, package private. Not published; the tags remain.
+- User direction 22:45 (via a0psyi7e): packages need not use OCI. The channel
+  becomes the GitHub Release build-<commit12> (tools/release.sh,
+  tests/release-test.sh 13/13); the OCI publisher is removed.

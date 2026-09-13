@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026-09-13 23:40 [progress]
+
+Packages may be delivered without OCI (user direction 22:45), and the GHCR
+package stays private, so the archives are released as the GitHub Release
+`build-<commit12>` by `tools/release.sh` in the `publish` job. `tools/publish.sh`
+and its test are removed; the pool tags d8394e8 uploaded to GHCR are left as
+they are.
+
 ## 2026-09-13 23:10 [progress]
 
 `tools/publish.sh` publishes the gated archives as

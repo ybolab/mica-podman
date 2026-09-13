@@ -3,7 +3,7 @@
 # verified as its RULES.md section 1 requires.
 #
 #   bash tools/build-env.sh fetch          assets into _out/build-env/v<version>/, verified
-#   bash tools/build-env.sh image <KEY>    one IMAGE_* digest pin from that images.env
+#   bash tools/build-env.sh image <KEY>    one IMAGE_MICA_BUILD_* digest pin from that images.env
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -67,7 +67,7 @@ fetch)
     fetch
     ;;
 image)
-    [ "$#" -eq 2 ] && [[ "$2" =~ ^IMAGE_[A-Z0-9_]+$ ]] || die "usage: image IMAGE_<NAME>"
+    [ "$#" -eq 2 ] && [[ "$2" =~ ^IMAGE_MICA_BUILD_[A-Z]+$ ]] || die "usage: image IMAGE_MICA_BUILD_<NAME>"
     fetch >/dev/null
     value="$(sed -n "s/^$2=//p" "${DIR}/images.env")"
     [ -n "${value}" ] || die "images.env of ${TAG} carries no $2"
