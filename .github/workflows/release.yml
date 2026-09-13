@@ -1,6 +1,7 @@
 name: release
-# Builds, packs and gates mica-podman for amd64 and arm64 on native runners; a
-# push to main then releases those gated archives as the GitHub Release
+# Builds, packs and gates mica-podman for amd64 and arm64 on native runners on
+# every push and pull request. Publishing is manual: a workflow_dispatch run on
+# main builds, gates and releases the archives as the GitHub Release
 # build-<commit12> of this repository (tools/release.sh).
 on:
   push:
@@ -11,13 +12,13 @@ on:
   workflow_dispatch:
 concurrency:
   group: release-${{ github.ref }}
-  # A push run is never cancelled, so a publication is not stopped halfway.
+  # Only pull request runs are cancelled, so a publication is not stopped halfway.
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
   pin-freshness:
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -29,7 +30,7 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: make podman-pins
   check:
-    if: github.event_name == 'push' || github.event_name == 'pull_request'
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -81,7 +82,7 @@ jobs:
           bash tests/package-gate.sh
   publish:
     needs: gate
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write

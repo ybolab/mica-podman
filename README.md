@@ -2,7 +2,7 @@
 
 The container engine of Mica OS, built from pinned upstream source and packed
 as the Debian package `mica-podman`, the only output of this repository: a
-push to main releases it as the GitHub Release `build-<commit12>`
+manual run of the `release` workflow on main releases it as the GitHub Release `build-<commit12>`
 (`mica-podman_<version>_<arch>.deb` with `+` written `.`, and `SHA256SUMS`). It
 builds on the mica-build-env release pinned in `build-env.env` (version and
 the sha256 of its `SHA256SUMS`) and the `IMAGE_MICA_BUILD_*` images that

@@ -38,7 +38,7 @@ own scripts.
    Replaces or enablement links, the payload against `payload.manifest`, and
    with `--reproduce` a no-cache rebuild byte for byte.
 5. CI: `make check`, then per-architecture native runners build, pack and
-   reproduce, then a gate over both arches; a push to main releases those
+   reproduce, then a gate over both arches; a manual run on main releases those
    gated artifacts with `tools/release.sh` (contents: write), never cancelled
    halfway.
 6. Release: `tools/release.sh` publishes the gated archives of a clean HEAD

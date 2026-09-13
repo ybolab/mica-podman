@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-09-14 00:20 [progress]
+
+Publishing is manual: only a `workflow_dispatch` run of the `release` workflow
+on main releases the archives; pushes and pull requests build and gate only.
+The weekly pin check no longer runs on a manual run.
+
 ## 2026-09-14 00:00 [progress]
 
 mica-build-env republished v0.0.1 at tag commit 3863d69d382a (new SHA256SUMS
