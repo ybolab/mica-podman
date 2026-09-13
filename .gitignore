@@ -10,3 +10,6 @@ _out/
 
 # Project-scoped scratch of the agent sandbox convention.
 .tmp/
+
+# Repository-local scratch the packaging driver bind-mounts into containers.
+tmp/
