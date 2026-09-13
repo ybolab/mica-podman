@@ -16,7 +16,7 @@ endif
 
 MICA_ARCH ?= arm64
 
-.PHONY: help deps deps-check deps-bump build-env podman podman-pins podman-pins-test deb-preflight-test deb pool publish package-gate preflight lint check
+.PHONY: help deps deps-check deps-bump build-env podman podman-pins podman-pins-test deb-preflight-test transport-pool-test deb pool publish package-gate preflight lint check
 
 help:
 	@echo "  deps                fetch build-env/ at its pin (deps/sources/); deps-check reads without downloading"
@@ -29,8 +29,9 @@ help:
 	@echo "  pool                both architectures, indexed (Packages, SHA256SUMS, manifest.txt)"
 	@echo "  package-gate        the package gate over this repository's pool"
 	@echo "  publish             the pool as the GitHub Release build-<commit12> of this commit"
+	@echo "  transport-pool-test the refusals of tools/transport-pool.sh, against fixture archives (offline)"
 	@echo "  lint                shell hygiene of the tree"
-	@echo "  check               everything that runs offline: lint, podman-pins-test, deb-preflight-test, preflight"
+	@echo "  check               everything that runs offline: lint, podman-pins-test, deb-preflight-test, transport-pool-test, preflight"
 
 deps:
 	bash tools/deps.sh fetch
@@ -56,6 +57,11 @@ podman-pins-test:
 deb-preflight-test:
 	bash tests/deb-preflight-test.sh
 
+# tools/transport-pool.sh refuses mismatched release archives before any
+# registry access (offline; a stub gh serves fixture archives).
+transport-pool-test:
+	bash tests/transport-pool-test.sh
+
 # The producer's PREPARE hook answers, without building, whether out-<arch>
 # is present, complete and stamped by the current versions.env.
 preflight:
@@ -79,4 +85,4 @@ publish:
 lint:
 	bash tests/shell-lint.sh
 
-check: lint podman-pins-test deb-preflight-test preflight
+check: lint podman-pins-test deb-preflight-test transport-pool-test preflight

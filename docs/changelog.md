@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026-09-13 20:00 [progress]
+
+The pool moves to the per-repository OCI package
+`ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>`. The substrate pin
+is `mica-build-env` c076e2410326 (an OCI source artifact, read anonymously),
+with `tools/deps.sh` vendored verbatim from it. The archives consumers
+already pin, published only as the GitHub Release `build-4c84b4b13e03`, are
+carried byte for byte into that package by `tools/transport-pool.sh`, run
+only by the manual workflow `transport-pool`: each archive must hash to the
+pinned digest and carry the revision's control identity before the
+substrate's `deb/publish.sh` pushes it from a worktree of that revision.
+`make check` runs its refusals (`tests/transport-pool-test.sh`).
+
 ## 2026-09-13 01:30 [progress]
 
 Created from `pkgs/podman/` of `ybolab/mica-build` (5 commits kept through

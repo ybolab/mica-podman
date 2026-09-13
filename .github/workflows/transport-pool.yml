@@ -1,0 +1,40 @@
+name: transport-pool
+# A manual run carries the archives of an existing release build-<commit12>
+# of this repository, byte for byte, into its pool artifacts
+# ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>, by this workflow's
+# own token (tools/deps.sh fetches the substrate; tools/transport-pool.sh
+# checks and hands over to its deb/publish.sh). The digests are the ones
+# consumers already pin: bytes or a control identity other than that commit's
+# publish nothing. Publishing is CI's: a developer machine does not push.
+on:
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Full 40-hex commit whose release archives to transport
+        required: true
+      expect_amd64_sha256:
+        description: The sha256 consumers pin for the amd64 archive
+        required: true
+      expect_arm64_sha256:
+        description: The sha256 consumers pin for the arm64 archive
+        required: true
+permissions:
+  contents: read
+  packages: write
+jobs:
+  transport:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Fetch the build substrate at its pin
+        run: make deps
+      - name: Transport the release archives
+        run: bash tools/transport-pool.sh --revision "$REVISION" --expect-amd64 "$EXPECT_AMD64" --expect-arm64 "$EXPECT_ARM64"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MICA_REGISTRY_USER: ${{ github.actor }}
+          REVISION: ${{ inputs.revision }}
+          EXPECT_AMD64: ${{ inputs.expect_amd64_sha256 }}
+          EXPECT_ARM64: ${{ inputs.expect_arm64_sha256 }}
