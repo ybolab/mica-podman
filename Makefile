@@ -16,7 +16,7 @@ endif
 
 MOS_ARCH ?= arm64
 
-.PHONY: help deps deps-check deps-bump build-env podman podman-pins podman-pins-test deb pool publish package-gate preflight lint check
+.PHONY: help deps deps-check deps-bump build-env podman podman-pins podman-pins-test deb-preflight-test deb pool publish package-gate preflight lint check
 
 help:
 	@echo "  deps                fetch build-env/ at its pin (deps/sources/); deps-check reads without downloading"
@@ -30,7 +30,7 @@ help:
 	@echo "  package-gate        the package gate over this repository's pool"
 	@echo "  publish             the pool as the GitHub Release build-<commit12> of this commit"
 	@echo "  lint                shell hygiene of the tree"
-	@echo "  check               everything that runs offline: lint, podman-pins-test, preflight"
+	@echo "  check               everything that runs offline: lint, podman-pins-test, deb-preflight-test, preflight"
 
 deps:
 	bash tools/deps.sh fetch
@@ -50,6 +50,11 @@ podman-pins:
 
 podman-pins-test:
 	bash tests/podman-pins-test.sh
+
+# The versions stamp and the producer's pre-flight against a fixture out-<arch>
+# (offline; needs `file` and a host ELF of this architecture).
+deb-preflight-test:
+	bash tests/deb-preflight-test.sh
 
 # The producer's PREPARE hook answers, without building, whether out-<arch>
 # is present, complete and stamped by the current versions.env.
@@ -74,4 +79,4 @@ publish:
 lint:
 	bash tests/shell-lint.sh
 
-check: lint podman-pins-test preflight
+check: lint podman-pins-test deb-preflight-test preflight

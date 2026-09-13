@@ -8,11 +8,34 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    # Weekly: are the six upstream tags versions.env pins still the newest
+    # releases? The check reads public release lists, edits nothing and bumps
+    # nothing; its whole output is a red tick naming which component moved.
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
 concurrency:
   group: release-${{ github.ref }}
   cancel-in-progress: true
 jobs:
+  pin-freshness:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Fetch the build substrate at its pin
+        run: make deps
+        env:
+          GH_TOKEN: ${{ secrets.MICA_DEPS_TOKEN }}
+      - name: The check on the check, against recorded upstream responses
+        run: make podman-pins-test
+      - name: Ask the six upstreams for their newest release
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: make podman-pins
   package:
+    if: github.event_name == 'push' || github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
