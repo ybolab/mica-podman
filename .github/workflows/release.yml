@@ -1,6 +1,7 @@
 name: release
-# Builds, packs and gates mica-podman for amd64 and arm64 on native runners and
-# keeps the archives as workflow artifacts. Publication is not wired yet.
+# Builds, packs and gates mica-podman for amd64 and arm64 on native runners; a
+# push to main then publishes those gated archives as
+# ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12> (tools/publish.sh).
 on:
   push:
     branches: [main]
@@ -10,7 +11,8 @@ on:
   workflow_dispatch:
 concurrency:
   group: release-${{ github.ref }}
-  cancel-in-progress: true
+  # A push run is never cancelled, so a publication is not stopped halfway.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 permissions:
   contents: read
 jobs:
@@ -77,3 +79,33 @@ jobs:
             cp "_out/artifacts/mica-podman-$arch/"*.deb "_out/debs/$arch/"
           done
           bash tests/package-gate.sh
+  publish:
+    needs: gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    concurrency:
+      group: publish-mica-podman
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: mica-podman-*
+          path: _out/artifacts
+      - name: The gated archives of this run
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            mkdir -p "_out/debs/$arch"
+            cp "_out/artifacts/mica-podman-$arch/"*.deb "_out/debs/$arch/"
+          done
+          rm -rf _out/artifacts
+          bash tests/package-gate.sh
+      - name: Publish the pools and read them back anonymously
+        run: bash tools/publish.sh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          MICA_REGISTRY_USER: ${{ github.actor }}

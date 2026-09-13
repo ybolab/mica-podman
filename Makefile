@@ -2,7 +2,7 @@
 
 MICA_ARCH ?= arm64
 
-.PHONY: help build-env podman podman-pins podman-pins-test stamp-test build-env-test package-test deb pool package-gate lint check
+.PHONY: help build-env podman podman-pins podman-pins-test stamp-test build-env-test package-test publish-test deb pool package-gate publish lint check
 
 help:
 	@echo "  build-env           fetch and verify the pinned mica-build-env release (build-env.env)"
@@ -10,8 +10,9 @@ help:
 	@echo "  deb                 pack _out/podman/\$$MICA_ARCH into _out/debs/\$$MICA_ARCH/"
 	@echo "  pool                deb for amd64 and arm64"
 	@echo "  package-gate        the package gate over _out/debs, with no-cache rebuilds"
+	@echo "  publish             publish _out/debs as pool.<arch>.build-<commit12> (CI, clean HEAD)"
 	@echo "  podman-pins         are the upstream tags in versions.env current? (network)"
-	@echo "  check               offline: lint, podman-pins-test, stamp-test, build-env-test, package-test"
+	@echo "  check               lint, podman-pins-test, stamp-test, build-env-test, package-test, publish-test (docker)"
 
 build-env:
 	bash tools/build-env.sh fetch
@@ -29,6 +30,9 @@ pool:
 package-gate:
 	bash tests/package-gate.sh --reproduce
 
+publish:
+	bash tools/publish.sh
+
 podman-pins:
 	bash check-pins.sh
 
@@ -44,7 +48,10 @@ build-env-test:
 package-test:
 	bash tests/package-test.sh
 
+publish-test:
+	bash tests/publish-test.sh
+
 lint:
 	bash tests/shell-lint.sh
 
-check: lint podman-pins-test stamp-test build-env-test package-test
+check: lint podman-pins-test stamp-test build-env-test package-test publish-test

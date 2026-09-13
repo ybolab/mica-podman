@@ -1,5 +1,14 @@
 # Changelog
 
+## 2026-09-13 23:10 [progress]
+
+`tools/publish.sh` publishes the gated archives as
+`ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>` (RULES section 3),
+run by the `publish` job of the `release` workflow on pushes to main, which
+are no longer cancelled by a later push. The package version stays
+`<PODMAN_VERSION>+git<commit12>-1` with `versions.env` as its only input; the
+unused `VERSION` file is removed.
+
 ## 2026-09-13 22:50 [progress]
 
 Builds on the mica-build-env release v0.0.1 (`build-env.env`: version and

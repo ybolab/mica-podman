@@ -38,9 +38,20 @@ own scripts.
    Replaces or enablement links, the payload against `payload.manifest`, and
    with `--reproduce` a no-cache rebuild byte for byte.
 5. CI: `make check`, then per-architecture native runners build, pack and
-   reproduce, then a gate over both arches. Publication is decided separately
-   (see Decisions).
-6. Remove what no caller needs any more: `tools/deps.sh`, `deps/`,
+   reproduce, then a gate over both arches; a push to main publishes those
+   gated artifacts with `tools/publish.sh` (packages: write), never cancelled
+   halfway.
+6. Publish (RULES section 3): `tools/publish.sh` pushes
+   `ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>` from a clean
+   HEAD: one `application/vnd.mica.deb` layer titled
+   `mica-podman_<version>_<arch>.deb`, empty config, `artifactType
+   application/vnd.mica.pool`, annotations revision, created (commit time,
+   UTC), source, `mica.source-repo`, `mica.source-commit`, `mica.arch`. Every
+   archive's identity is checked before any registry access; an existing tag
+   must match bytes and identity; both pools are uploaded, then each manifest
+   (by tag and digest) and deb is read back with no credential.
+   `tests/publish-test.sh` drives it against local registries.
+7. Remove what no caller needs any more: `tools/deps.sh`, `deps/`,
    `build-env/`, `deb/podman/producer.env` and `prepare.sh`, the `make
    build-env` image build and the pool index.
 
@@ -48,12 +59,14 @@ Verification: `make check` (including new `build-env-test`, `stamp-test`);
 `make pool` and `make package-gate` over the existing `_out/podman/{amd64,arm64}`
 binaries on the release base image; CI run on both native arches.
 
-## Decisions left open
+## Decisions
 
-- Publication channel: the OCI pool artifact of RULES section 3, or GitHub
-  Release deb assets.
-- Package version number: RULES section 6 takes it from `VERSION`; this package
-  has used `PODMAN_VERSION`.
+- Publication channel (coordinator a0psyi7e, 2026-09-13, project contract and
+  the Core/Podman publication grant): the own-repository OCI pool of RULES
+  section 3. No GitHub Release channel.
+- Package version (same): this repository keeps
+  `<PODMAN_VERSION>+git<commit12>-1`; `versions.env` `PODMAN_VERSION` is the one
+  version input. The unused `VERSION` file is removed.
 
 ## Risks
 

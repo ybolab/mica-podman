@@ -1,7 +1,9 @@
 # mica-podman
 
 The container engine of Mica OS, built from pinned upstream source and packed
-as the Debian package `mica-podman`, the only output of this repository. It
+as the Debian package `mica-podman`, the only output of this repository: a
+push to main publishes it as
+`ghcr.io/ybolab/mica-podman:pool.<arch>.build-<commit12>`. It
 builds on the mica-build-env release pinned in `build-env.env` (version and
 the sha256 of its `SHA256SUMS`) and the `IMAGE_MICA_BUILD_*` images that
 release names, and implements the release's `RULES.md` in its own scripts.
@@ -33,6 +35,7 @@ enables from the `container.enabled` setting.
 | `build.sh`, `Dockerfile` | the engine binaries |
 | `tools/package.sh`, `deb/` | the archive: staging, payload manifest, `pack.sh` |
 | `tests/package-gate.sh` | identity, payload, copyright, no conffiles or enablement, reproducibility |
+| `tools/publish.sh` | the pool artifacts: identity checks, immutable tags, anonymous read-back |
 | `tools/build-env.sh` | release download and verification |
 
 ## Bumping a version
