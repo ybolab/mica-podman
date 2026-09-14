@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
-# Publish _out/debs/{amd64,arm64} of a clean HEAD as the GitHub Release
-# build-<commit12> of this repository, tagged at that commit.
+# Release _out/debs/{amd64,arm64} of a clean HEAD on main as the GitHub Release
+# <YYYYMMDD-HHMM> (UTC, now), tagged at that commit.
 #
 #   GH_TOKEN=<token with contents:write> bash tools/release.sh
 #
-# Assets: mica-podman_<version>_<arch>.deb with `+` written `.` (GitHub's asset
-# naming) and SHA256SUMS over both. Every archive is checked before any gh
-# call. An existing release must target HEAD, be tagged at HEAD and hold exactly
-# these assets; it is never replaced. Every asset is then downloaded with no
-# credential and checked. The token is never printed.
+# Run by the manual release workflow. Assets: mica-podman_<version>_<arch>.deb
+# with `+` written `.` (GitHub's asset naming) and SHA256SUMS over both. Every
+# archive is checked before any gh call. Nothing is written unless the commit is
+# on main, no release or tag has the name, the name is after the newest release,
+# and no release already carries these archives; an existing release is never
+# changed. The tag and every asset are then read back with no credential.
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -19,6 +20,9 @@ for t in gh git curl jq sha256sum dpkg-deb; do
     command -v "${t}" >/dev/null 2>&1 || die "${t} is required and not on PATH"
 done
 
+TAG="${MICA_RELEASE_TAG:-$(date -u +%Y%m%d-%H%M)}"
+[[ "${TAG}" =~ ^[0-9]{8}-[0-9]{4}$ ]] || die "the tag '${TAG}' is not YYYYMMDD-HHMM"
+
 cd "${REPO_ROOT}"
 [ -z "$(git status --porcelain)" ] || die "the checkout has uncommitted changes; only a clean HEAD is released"
 COMMIT="$(git rev-parse HEAD)"
@@ -27,7 +31,6 @@ ORIGIN="$(git remote get-url origin)"
 [[ "${ORIGIN}" =~ github\.com[:/]([A-Za-z0-9._-]+)/([A-Za-z0-9._-]+)$ ]] || die "origin ${ORIGIN} is not a GitHub repository"
 SLUG="${BASH_REMATCH[1]}/${BASH_REMATCH[2]%.git}"
 REPOSITORY="${SLUG#*/}"
-TAG="build-${C12}"
 DOWNLOAD="${MICA_RELEASE_DOWNLOAD:-https://github.com/${SLUG}/releases/download}"
 GIT_URL="${MICA_RELEASE_GIT:-https://github.com/${SLUG}.git}"
 
@@ -54,24 +57,26 @@ for arch in "${ARCHES[@]}"; do
     cp "${deb}" "${WORK}/assets/${PACKAGE}_${v//+/.}_${arch}.deb"
 done
 (cd "${WORK}/assets" && sha256sum -- *.deb >SHA256SUMS)
-EXPECTED="$(cd "${WORK}/assets" && for f in *; do printf '%s %s sha256:%s\n' "${f}" "$(stat -c %s "${f}")" "$(sha256sum "${f}" | cut -d' ' -f1)"; done | LC_ALL=C sort)"
 
 [ -n "${GH_TOKEN:-}" ] || die "GH_TOKEN must be set; releasing is CI's, with its own token"
+git merge-base --is-ancestor "${COMMIT}" origin/main 2>/dev/null || die "${COMMIT} is not on origin/main; only a commit of main is released"
 
-if gh release view "${TAG}" -R "${SLUG}" --json tagName,isDraft,targetCommitish,assets >"${WORK}/view.json" 2>"${WORK}/view.err"; then
-    [ "$(jq -r .isDraft "${WORK}/view.json")" = false ] || die "release ${TAG} exists as an unpublished draft; inspect it, nothing was changed"
-    target="$(jq -r .targetCommitish "${WORK}/view.json")"
-    [ "${target}" = "${COMMIT}" ] || die "release ${TAG} targets ${target}, not ${COMMIT}"
-    [ "$(jq -r '.assets[] | "\(.name) \(.size) \(.digest)"' "${WORK}/view.json" | LC_ALL=C sort)" = "${EXPECTED}" ] ||
-        die "release ${TAG} exists with other assets; a release is never replaced"
-    echo "release.sh: ${SLUG} ${TAG} exists with these assets"
-else
-    grep -c 'release not found' "${WORK}/view.err" >/dev/null || die "gh release view ${TAG}: $(head -c 300 "${WORK}/view.err")"
-    gh release create "${TAG}" -R "${SLUG}" --target "${COMMIT}" --title "${TAG}" \
-        --notes "mica-podman ${VERSION} (amd64, arm64) built from ${COMMIT}. Verify with SHA256SUMS." \
-        "${WORK}/assets/SHA256SUMS" "${WORK}/assets/"*.deb >/dev/null
-    echo "release.sh: created ${SLUG} ${TAG}"
-fi
+gh api --paginate --slurp "repos/${SLUG}/releases" >"${WORK}/releases.json" || die "listing the releases of ${SLUG} failed"
+jq 'add // []' "${WORK}/releases.json" >"${WORK}/all.json"
+[ "$(jq --arg t "${TAG}" '[.[] | select(.tag_name == $t)] | length' "${WORK}/all.json")" -eq 0 ] ||
+    die "release ${TAG} already exists; a release is never changed"
+[ -z "$(git ls-remote --tags "${GIT_URL}" "refs/tags/${TAG}" 2>/dev/null)" ] || die "tag ${TAG} already exists at ${GIT_URL}"
+newest="$(jq -r '.[].tag_name' "${WORK}/all.json" | grep -E '^[0-9]{8}-[0-9]{4}$' | LC_ALL=C sort | tail -n1 || true)"
+[ -z "${newest}" ] || [[ "${TAG}" > "${newest}" ]] || die "${TAG} is not after the newest release ${newest}"
+for f in "${WORK}/assets/"*.deb; do
+    released="$(jq -r --arg n "$(basename "${f}")" '[.[] | select(any(.assets[]; .name == $n)) | .tag_name] | join(" ")' "${WORK}/all.json")"
+    [ -z "${released}" ] || die "$(basename "${f}") is already released as ${released}; ${COMMIT} is not released twice"
+done
+
+gh release create "${TAG}" -R "${SLUG}" --target "${COMMIT}" --title "${TAG}" \
+    --notes "mica-podman ${VERSION} (amd64, arm64) built from ${SLUG}@${COMMIT}. Verify with SHA256SUMS." \
+    "${WORK}/assets/SHA256SUMS" "${WORK}/assets/"*.deb >/dev/null
+echo "release.sh: created ${SLUG} ${TAG} at ${COMMIT}"
 
 # Anonymous: the tag, then every asset through the download URL.
 tagged=""
@@ -81,11 +86,11 @@ for _ in 1 2 3 4 5; do
     sleep 3
 done
 [ "${tagged}" = "${COMMIT}" ] || die "tag ${TAG} is ${tagged:-absent} at ${GIT_URL}, not ${COMMIT}"
-for f in SHA256SUMS "${WORK}/assets/"*.deb; do
+for f in "${WORK}/assets/"*; do
     n="$(basename "${f}")"
     curl -fsSL --retry 5 --retry-delay 5 --max-time 600 -o "${WORK}/download/${n}" "${DOWNLOAD}/${TAG}/${n}" ||
         die "${DOWNLOAD}/${TAG}/${n} cannot be downloaded anonymously"
-    cmp -s "${WORK}/download/${n}" "${WORK}/assets/${n}" || die "${DOWNLOAD}/${TAG}/${n} downloads with other bytes"
+    cmp -s "${WORK}/download/${n}" "${f}" || die "${DOWNLOAD}/${TAG}/${n} downloads with other bytes"
 done
 (cd "${WORK}/download" && sha256sum --quiet -c SHA256SUMS) || die "the downloaded assets of ${TAG} do not match SHA256SUMS"
 echo "release.sh: ${DOWNLOAD}/${TAG}/ downloaded anonymously, tag ${TAG} at ${COMMIT}"

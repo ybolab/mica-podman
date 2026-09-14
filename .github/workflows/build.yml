@@ -1,0 +1,59 @@
+name: build
+# Called by ci.yml and release.yml: offline checks, then mica-podman built,
+# packed and gated for amd64 and arm64 on native runners, kept as the
+# artifacts mica-podman-<arch>.
+on:
+  workflow_call:
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: Offline checks
+        run: make check
+  package:
+    needs: check
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+    env:
+      MICA_ARCH: ${{ matrix.arch }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: The pinned mica-build-env release
+        run: make build-env
+      - name: The engine
+        run: make podman
+      - name: Pack
+        run: make deb
+      - name: Gate, with a no-cache rebuild
+        run: bash tests/package-gate.sh --arch "$MICA_ARCH" --reproduce
+      - uses: actions/upload-artifact@v7
+        with:
+          name: mica-podman-${{ matrix.arch }}
+          path: _out/debs/${{ matrix.arch }}/*.deb
+          if-no-files-found: error
+  gate:
+    needs: package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: mica-podman-*
+          path: _out/artifacts
+      - name: Gate over both architectures
+        run: |
+          set -euo pipefail
+          for arch in amd64 arm64; do
+            mkdir -p "_out/debs/$arch"
+            cp "_out/artifacts/mica-podman-$arch/"*.deb "_out/debs/$arch/"
+          done
+          bash tests/package-gate.sh

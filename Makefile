@@ -10,7 +10,7 @@ help:
 	@echo "  deb                 pack _out/podman/\$$MICA_ARCH into _out/debs/\$$MICA_ARCH/"
 	@echo "  pool                deb for amd64 and arm64"
 	@echo "  package-gate        the package gate over _out/debs, with no-cache rebuilds"
-	@echo "  publish             release _out/debs as the GitHub Release build-<commit12> (CI, clean HEAD)"
+	@echo "  publish             release _out/debs as the GitHub Release <YYYYMMDD-HHMM> (release workflow only)"
 	@echo "  podman-pins         are the upstream tags in versions.env current? (network)"
 	@echo "  check               lint, podman-pins-test, stamp-test, build-env-test, package-test, release-test"
 

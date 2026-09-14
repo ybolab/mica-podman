@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-09-14 00:50 [progress]
+
+CI and releases are split as in mica-build-env. `ci.yml` builds and gates
+pushes and pull requests (and runs the weekly pin check) and publishes nothing;
+`release.yml` is dispatched by hand on main, builds and gates through the
+shared `build.yml`, and `tools/release.sh` creates the GitHub Release
+`<YYYYMMDD-HHMM>` (UTC) at that commit. It refuses a commit not on main, an
+existing name, a name not after the newest release and a commit already
+released. The `build-<commit12>` releases stay.
+
 ## 2026-09-14 00:20 [progress]
 
 Publishing is manual: only a `workflow_dispatch` run of the `release` workflow

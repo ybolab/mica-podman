@@ -1,9 +1,7 @@
 # mica-podman
 
 The container engine of Mica OS, built from pinned upstream source and packed
-as the Debian package `mica-podman`, the only output of this repository: a
-manual run of the `release` workflow on main releases it as the GitHub Release `build-<commit12>`
-(`mica-podman_<version>_<arch>.deb` with `+` written `.`, and `SHA256SUMS`). It
+as the Debian package `mica-podman`, the only output of this repository. It
 builds on the mica-build-env release pinned in `build-env.env` (version and
 the sha256 of its `SHA256SUMS`) and the `IMAGE_MICA_BUILD_*` images that
 release names, and implements the release's `RULES.md` in its own scripts.
@@ -37,6 +35,23 @@ enables from the `container.enabled` setting.
 | `tests/package-gate.sh` | identity, payload, copyright, no conffiles or enablement, reproducibility |
 | `tools/release.sh` | the GitHub Release: identity checks, never replaced, anonymous download |
 | `tools/build-env.sh` | release download and verification |
+
+## CI and releases
+
+`ci.yml` builds, packs and gates both architectures on every push to main and
+pull request, and publishes nothing. Releasing is manual, as in mica-build-env:
+
+```
+gh workflow run release.yml -R ybolab/mica-podman --ref main
+```
+
+`release.yml` builds and gates the head of main again, then `tools/release.sh`
+creates the GitHub Release `<YYYYMMDD-HHMM>` (UTC, the time of the release)
+tagged at that commit, with `mica-podman_<version>_<arch>.deb` (`+` written
+`.`) for amd64 and arm64 and `SHA256SUMS`, and downloads it back with no
+credential. It refuses a commit not on main, a name that exists or is not
+after the newest release, and a commit that is already released; a release is
+never changed.
 
 ## Bumping a version
 

@@ -37,17 +37,19 @@ own scripts.
    one stamp across arches, copyright, no conffiles, maintainer scripts,
    Replaces or enablement links, the payload against `payload.manifest`, and
    with `--reproduce` a no-cache rebuild byte for byte.
-5. CI: `make check`, then per-architecture native runners build, pack and
-   reproduce, then a gate over both arches; a manual run on main releases those
-   gated artifacts with `tools/release.sh` (contents: write), never cancelled
-   halfway.
+5. CI: `build.yml` (reusable) runs `make check`, per-architecture native
+   builds with a no-cache reproduction and a gate over both arches. `ci.yml`
+   calls it on pushes and pull requests and publishes nothing; `release.yml`
+   is manual only (workflow_dispatch on main), calls it and releases those
+   gated artifacts with `tools/release.sh` (contents: write), never cancelled.
 6. Release: `tools/release.sh` publishes the gated archives of a clean HEAD
-   as the GitHub Release `build-<commit12>`, created with `--target <commit>`:
-   `mica-podman_<version with + as .>_<arch>.deb` for amd64 and arm64 and
-   `SHA256SUMS` over both. Archive identity is checked before any gh call; an
-   existing release must be published, target the commit, be tagged at it and
-   hold exactly these assets; then the tag and every asset are read back
-   anonymously. `tests/release-test.sh` drives it against a stub gh.
+   on main as the GitHub Release `<YYYYMMDD-HHMM>` (UTC, now), created with
+   `--target <commit>`: `mica-podman_<version with + as .>_<arch>.deb` for
+   amd64 and arm64 and `SHA256SUMS` over both. Archive identity is checked
+   before any gh call; the name must not exist as a release or tag and must be
+   after the newest release, and no release may already carry these archives;
+   then the tag and every asset are read back anonymously.
+   `tests/release-test.sh` drives it against a stub gh.
 7. Remove what no caller needs any more: `tools/deps.sh`, `deps/`,
    `build-env/`, `deb/podman/producer.env` and `prepare.sh`, the `make
    build-env` image build and the pool index.
@@ -64,6 +66,10 @@ binaries on the release base image; CI run on both native arches.
   lifts the OCI requirement for packages, so the channel is the GitHub Release
   of this public repository; the OCI publisher is removed (it stays in
   d8394e8) and the uploaded tags are left untouched.
+- Release trigger and name (user, 2026-09-14): as in mica-build-env, releasing
+  is manual only, with CI split out; the release name is the UTC date and
+  time `<YYYYMMDD-HHMM>` instead of `build-<commit12>`. Earlier `build-*`
+  releases stay as they are.
 - Package version (same): this repository keeps
   `<PODMAN_VERSION>+git<commit12>-1`; `versions.env` `PODMAN_VERSION` is the one
   version input. The unused `VERSION` file is removed.
